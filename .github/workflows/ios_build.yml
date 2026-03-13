@@ -42,13 +42,21 @@ jobs:
       env:
         DISPLAY: :99.0
         
-    - name: Set iOS Deployment Target
-      run: sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/' build/Paper_Lily.xcodeproj/project.pbxproj
-
+    - name: Export iOS project
+      run: godot --headless --export "iOS" build/Paper_Lily.xcodeproj
 
     - name: Build iOS project
-      run: xcodebuild -project build/Paper_Lily.xcodeproj -scheme Paper_Lily -configuration Development -archivePath build/Paper_Lily.xcarchive archive \ 'CODE_SIGN_IDENTITY="ethantobot@icloud.com";/CODE_SIGNING_REQUIRED=NO;/CODE_SIGNING_ALLOWED=NO;/'
-
+      run: |
+        xcodebuild \
+        -project build/Paper_Lily.xcodeproj \
+        -scheme Paper_Lily \
+        -configuration Development \
+        -archivePath build/Paper_Lily.xcarchive \
+        archive \
+        CODE_SIGNING_ALLOWED=NO \
+        CODE_SIGNING_REQUIRED=NO \
+        CODE_SIGN_IDENTITY=""
+    
     - name: Export IPA
       run: | 
         cd build
