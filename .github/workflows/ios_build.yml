@@ -38,7 +38,7 @@ jobs:
       run: mkdir -p build
 
     - name: Export iOS project
-      run: godot --export "iOS" build/Paper Lily.xcodeproj
+      run: godot --export "iOS" build/Paper_Lily.xcodeproj
       env:
         DISPLAY: :99.0
         
