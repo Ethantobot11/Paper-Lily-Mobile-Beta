@@ -1,6 +1,9 @@
 name: "Godot Android Build"
 on: [push, pull_request]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   export-android:
     runs-on: ubuntu-latest
