@@ -79,6 +79,9 @@ jobs:
           export/android/debug_keystore_pass="android"
           EOF
 
+      - name: Import Project
+        run: godot --no-window --editor --quit
+
       # Export APK
       - name: Export APK
         run: |
