@@ -3,7 +3,6 @@ name: Godot Android Build
 on: [push, pull_request]
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ANDROID_HOME: /usr/local/lib/android/sdk
 
 jobs:
@@ -14,25 +13,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Setup Java (Godot 3.5 needs JDK 11)
-      - name: Setup Java
+      # Install Java 17 (needed for sdkmanager)
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
 
       # Install Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK Packages
+      - name: Install Android Packages
         run: |
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-33"
           sdkmanager "build-tools;33.0.2"
 
-      # Download Godot + Templates
-      - name: Download Godot & Templates
+      # Switch to Java 11 for Godot
+      - name: Setup Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      # Download Godot
+      - name: Download Godot
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_linux_headless.64.zip
           unzip -o Godot_v3.5.3-stable_linux_headless.64.zip
@@ -58,7 +64,7 @@ jobs:
           -dname "CN=Android Debug,O=Android,C=US"
 
       # Configure Godot
-      - name: Configure Godot Editor
+      - name: Configure Godot
         run: |
           mkdir -p ~/.config/godot
 
@@ -68,12 +74,12 @@ jobs:
           echo 'export/android/debug_keystore_pass = "android"' >> ~/.config/godot/editor_settings-3.tres
 
       # Export APK
-      - name: Export Android
+      - name: Export APK
         run: |
           mkdir -p build/android
           godot --no-window --export "Android" build/android/game.apk
 
-      # Upload APK
+      # Upload
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
