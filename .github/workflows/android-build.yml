@@ -1,7 +1,9 @@
 name: "Godot Android Build"
+
 on: [push, pull_request]
 
 env:
+  # Opt-in to Node.js 24 for future-proofing
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -11,52 +13,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1. Setup Java (Required for Android builds)
+      # 1. Setup Java (Godot 3.5.3 requires JDK 11)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '11'
 
-      # 2. Setup Android SDK
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3.2.2
-
-      # 3. Download Godot and Export Templates
+      # 2. Download Godot 3.5.3 Headless & Templates
       - name: Download Godot & Templates
         run: |
-          # Download Godot Headless
+          # Download Godot Headless for Linux
           wget -q https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_linux_headless.64.zip
           unzip Godot_v3.5.3-stable_linux_headless.64.zip
           mv Godot_v3.5.3-stable_linux_headless.64 /usr/local/bin/godot
           
-          # Download Templates
+          # Download and install Export Templates
           wget -q https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_export_templates.tpz
           mkdir -p ~/.local/share/godot/templates/3.5.3.stable
           unzip Godot_v3.5.3-stable_export_templates.tpz -d ~/.local/share/godot/templates/3.5.3.stable
           mv ~/.local/share/godot/templates/3.5.3.stable/templates/* ~/.local/share/godot/templates/3.5.3.stable/
 
-      # 4. Configure Godot Editor Settings
-      # This tells Godot where to find the Android SDK on the runner
+      # 3. Configure Godot Editor Settings
+      # Uses the pre-installed $ANDROID_HOME on the runner
       - name: Configure Godot
         run: |
           mkdir -p ~/.config/godot/
-          echo 'export/android/android_sdk_path = "/usr/local/lib/android/sdk"' >> ~/.config/godot/editor_settings-3.tres
+          echo 'export/android/android_sdk_path = "'$ANDROID_HOME'"' >> ~/.config/godot/editor_settings-3.tres
           echo 'export/android/debug_keystore = "'$GITHUB_WORKSPACE'/debug.keystore"' >> ~/.config/godot/editor_settings-3.tres
 
-      # 5. Create a Debug Keystore (Required for Android Export)
+      # 4. Create Debug Keystore (Required for export)
       - name: Create Debug Keystore
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
 
-      # 6. Export APK
-      # Replace "Android" with the exact name of your export preset in Godot
+      # 5. Export APK
+      # Ensure your export preset in Godot is named "Android"
       - name: Export Android
         run: |
           mkdir -p build/android
           godot --export "Android" build/android/game.apk
 
-      # 7. Upload Artifact
+      # 6. Upload Artifact
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
