@@ -10,7 +10,7 @@ config_version=4
 
 [application]
 
-config/name="Lacie Engine"
+config/name="Paper_Lily"
 run/main_scene="res://Initializer.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Paper Lily"
