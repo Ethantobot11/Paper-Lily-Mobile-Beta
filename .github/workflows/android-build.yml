@@ -25,7 +25,7 @@ jobs:
         run: |
           # Use -nv (non-verbose) instead of -q to see errors but avoid log spam
           # Use --timeout to prevent the runner from hanging indefinitely
-          wget -nv --timeout=30 --tries=3 https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_linux_headless.64.zip
+          wget -nv --timeout=30 --tries=3 https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_linux_headless.64.zip
           
           # -o (overwrite) ensures unzip never waits for user input
           unzip -o Godot_v3.5.3-stable_linux_headless.64.zip
@@ -35,7 +35,7 @@ jobs:
           sudo chmod +x /usr/local/bin/godot
           
           # Templates download
-          wget -nv --timeout=30 --tries=3 https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_export_templates.tpz
+          wget -nv --timeout=30 --tries=3 https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
           mkdir -p ~/.local/share/godot/templates/3.5.3.stable
           
           # Unzip templates (overwriting any existing files)
