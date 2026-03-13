@@ -40,10 +40,7 @@ jobs:
     - name: Export iOS project
       run: godot --export "iOS" build/Paper_Lily.xcodeproj
       env:
-        DISPLAY: :99.0
-        
-    - name: Export iOS project
-      run: godot --headless --export "iOS" build/Paper_Lily.xcodeproj
+        DISPLAY: :99.9
 
     - name: Build iOS project
       run: |
