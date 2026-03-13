@@ -30,6 +30,9 @@ jobs:
           sdkmanager "platforms;android-33"
           sdkmanager "build-tools;33.0.2"
 
+      - name: Add Android Build Tools to PATH
+        run: echo "$ANDROID_HOME/build-tools/33.0.2" >> $GITHUB_PATH
+
       # Switch to Java 11 for Godot
       - name: Setup Java 11
         uses: actions/setup-java@v4
