@@ -20,18 +20,26 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
-      # 2. Download Godot 3.5.3 Headless & Templates
+            # Download Godot 3.5.3 & Templates
       - name: Download Godot & Templates
         run: |
-          # Download Godot Headless for Linux
-          wget -q https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_linux_headless.64.zip
-          unzip Godot_v3.5.3-stable_linux_headless.64.zip
-          mv Godot_v3.5.3-stable_linux_headless.64 /usr/local/bin/godot
+          # Use -nv (non-verbose) instead of -q to see errors but avoid log spam
+          # Use --timeout to prevent the runner from hanging indefinitely
+          wget -nv --timeout=30 --tries=3 https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_linux_headless.64.zip
           
-          # Download and install Export Templates
-          wget -q https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_export_templates.tpz
+          # -o (overwrite) ensures unzip never waits for user input
+          unzip -o Godot_v3.5.3-stable_linux_headless.64.zip
+          
+          # Moving to local bin
+          sudo mv Godot_v3.5.3-stable_linux_headless.64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          
+          # Templates download
+          wget -nv --timeout=30 --tries=3 https://downloads.tuxfamily.org/godotengine/3.5.3/Godot_v3.5.3-stable_export_templates.tpz
           mkdir -p ~/.local/share/godot/templates/3.5.3.stable
-          unzip Godot_v3.5.3-stable_export_templates.tpz -d ~/.local/share/godot/templates/3.5.3.stable
+          
+          # Unzip templates (overwriting any existing files)
+          unzip -o Godot_v3.5.3-stable_export_templates.tpz -d ~/.local/share/godot/templates/3.5.3.stable
           mv ~/.local/share/godot/templates/3.5.3.stable/templates/* ~/.local/share/godot/templates/3.5.3.stable/
 
       # 3. Configure Godot Editor Settings
