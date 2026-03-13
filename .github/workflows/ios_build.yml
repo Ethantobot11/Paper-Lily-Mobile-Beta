@@ -47,7 +47,7 @@ jobs:
 
 
     - name: Build iOS project
-      run: xcodebuild -project build/Paper_Lily.xcodeproj -scheme Paper_Lily -configuration Development -archivePath build/Paper_Lily.xcarchive archive \ CODE_SIGN_IDENTITY=""; CODE_SIGNING_REQUIRED=NO; CODE_SIGNING_ALLOWED=NO;
+      run: xcodebuild -project build/Paper_Lily.xcodeproj -scheme Paper_Lily -configuration Development -archivePath build/Paper_Lily.xcarchive archive \ 'CODE_SIGN_IDENTITY="ethantobot@icloud.com";/CODE_SIGNING_REQUIRED=NO;/CODE_SIGNING_ALLOWED=NO;/'
 
     - name: Export IPA
       run: | 
