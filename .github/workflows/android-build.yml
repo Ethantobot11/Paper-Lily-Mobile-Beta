@@ -1,71 +1,79 @@
-name: "Godot Android Build"
+name: Godot Android Build
 
 on: [push, pull_request]
 
 env:
-  # Opt-in to Node.js 24 for future-proofing
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  ANDROID_HOME: /usr/local/lib/android/sdk
 
 jobs:
   export-android:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1. Setup Java (Godot 3.5.3 requires JDK 11)
+      # Setup Java (Godot 3.5 needs JDK 11)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '11'
+          distribution: temurin
+          java-version: 11
 
-            # Download Godot 3.5.3 & Templates
+      # Install Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK Packages
+        run: |
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-33"
+          sdkmanager "build-tools;33.0.2"
+
+      # Download Godot + Templates
       - name: Download Godot & Templates
         run: |
-          # Use -nv (non-verbose) instead of -q to see errors but avoid log spam
-          # Use --timeout to prevent the runner from hanging indefinitely
-          wget -nv --timeout=30 --tries=3 https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_linux_headless.64.zip
-          
-          # -o (overwrite) ensures unzip never waits for user input
+          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_linux_headless.64.zip
           unzip -o Godot_v3.5.3-stable_linux_headless.64.zip
-          
-          # Moving to local bin
           sudo mv Godot_v3.5.3-stable_linux_headless.64 /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
-          
-          # Templates download
-          wget -nv --timeout=30 --tries=3 https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
+
+          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
           mkdir -p ~/.local/share/godot/templates/3.5.3.stable
-          
-          # Unzip templates (overwriting any existing files)
           unzip -o Godot_v3.5.3-stable_export_templates.tpz -d ~/.local/share/godot/templates/3.5.3.stable
           mv ~/.local/share/godot/templates/3.5.3.stable/templates/* ~/.local/share/godot/templates/3.5.3.stable/
 
-       # 2. Create the Debug Keystore file in the workspace
+      # Create Debug Keystore
       - name: Create Debug Keystore
         run: |
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          keytool -genkeypair \
+          -alias androiddebugkey \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -keystore debug.keystore \
+          -storepass android \
+          -keypass android \
+          -dname "CN=Android Debug,O=Android,C=US"
 
-      # 3. Configure Editor Settings (Fixes all 3 errors)
+      # Configure Godot
       - name: Configure Godot Editor
         run: |
-          mkdir -p ~/.config/godot/
-          # Set the SDK Path
+          mkdir -p ~/.config/godot
+
           echo 'export/android/android_sdk_path = "'$ANDROID_HOME'"' >> ~/.config/godot/editor_settings-3.tres
-          # Set the Global Debug Keystore Path
           echo 'export/android/debug_keystore = "'$GITHUB_WORKSPACE'/debug.keystore"' >> ~/.config/godot/editor_settings-3.tres
-          # Set Keystore User/Pass
           echo 'export/android/debug_keystore_user = "androiddebugkey"' >> ~/.config/godot/editor_settings-3.tres
           echo 'export/android/debug_keystore_pass = "android"' >> ~/.config/godot/editor_settings-3.tres
 
-      # 4. Export APK (Add --no-window for extra stability)
+      # Export APK
       - name: Export Android
         run: |
           mkdir -p build/android
           godot --no-window --export "Android" build/android/game.apk
 
-      # 6. Upload Artifact
+      # Upload APK
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
