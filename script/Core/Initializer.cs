@@ -27,14 +27,6 @@ namespace LacieEngine.Core
 			Log.Init();
 			Log.Info("Dependency injector initialized!");
 			TranslationServer.SetLocale(ProjectSettings.GetSetting("lacie_engine/core/translation_base_locale") as string);
-			string packPath = "res://pack/";
-			List<string> list = GDUtil.ListFilesInPath(packPath, null, ".pck", fullPath: false);
-			list.Sort();
-			foreach (string filename in list)
-			{
-				Log.Info("Loading PCK file: ", filename);
-				ProjectSettings.LoadResourcePack(packPath + filename);
-			}
 			foreach (string filename2 in GDUtil.ListFilesInPath("res://definitions/config/", ".cfg"))
 			{
 				Log.Debug("Processing external settings: ", filename2);
@@ -69,7 +61,7 @@ namespace LacieEngine.Core
 
 		private async void PerformLoading()
 		{
-			//await GDUtil.DelayOneFrame();
+			await GDUtil.DelayOneFrame();
 			await Game.Screen.ShowLoadingScreenInstantly();
 			Task task = Task.Run(delegate
 			{
@@ -123,6 +115,30 @@ namespace LacieEngine.Core
 			foreach (string filename in GDUtil.ListFilesInPath("res://resources/font/", ".tres"))
 			{
 				Game.Memory.SystemCache(filename);
+			}
+			Log.Info("Loading materials...");
+			foreach (string filename2 in GDUtil.ListFilesInPath("res://resources/material/", ".tres"))
+			{
+				Game.Memory.SystemCache(filename2);
+			}
+			Log.Info("Loading graphics...");
+			foreach (string filename3 in GDUtil.ListFilesInPath("res://assets/img/ui/", ".png"))
+			{
+				Game.Memory.SystemCache(filename3);
+			}
+			foreach (string filename4 in GDUtil.ListFilesInPath("res://assets/img/ui/input/", ".png"))
+			{
+				Game.Memory.SystemCache(filename4);
+			}
+			Log.Info("Loading sounds...");
+			foreach (string filename5 in GDUtil.ListFilesInPath("res://assets/sfx/", "ui_", ".ogg"))
+			{
+				Game.Memory.SystemCache(filename5);
+			}
+			Log.Info("Loading animations...");
+			foreach (string filename6 in GDUtil.ListFilesInPath("res://resources/animation/", ".tres"))
+			{
+				Game.Memory.SystemCache(filename6);
 			}
 			Log.Info("Loading system nodes...");
 			Game.Memory.SystemCache("res://resources/nodes/common/Player.tscn");
