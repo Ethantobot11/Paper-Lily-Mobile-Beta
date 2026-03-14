@@ -21,13 +21,38 @@ namespace LacieEngine.Core
 			CallDeferred("Init");
 		}
 
+		private void EnsurePckCopied()
+		{
+    		string source = "res://pack/*.pck";
+    		string destination = "user://*.pck";
+
+    		Directory dir = new Directory();
+    		File file = new File();
+
+    		if (!file.FileExists(destination))
+    		{
+        		GD.Print("Copying PCK to user storage...");
+
+        		file.Open(source, File.ModeFlags.Read);
+        		byte[] data = file.GetBuffer((int)file.GetLen());
+        		file.Close();
+
+        		file.Open(destination, File.ModeFlags.Write);
+        		file.StoreBuffer(data);
+        		file.Close();
+
+        		GD.Print("PCK copied!");
+    		}
+		}
+
 		public void Init()
 		{
 			Injector.Init();
 			Log.Init();
+			EnsurePckCopied();
 			Log.Info("Dependency injector initialized!");
 			TranslationServer.SetLocale(ProjectSettings.GetSetting("lacie_engine/core/translation_base_locale") as string);
-			string packPath = "res://pack/";
+			string packPath = "user://pack/";
 			List<string> list = GDUtil.ListFilesInPath(packPath, null, ".pck", fullPath: false);
 			list.Sort();
 			foreach (string filename in list)
