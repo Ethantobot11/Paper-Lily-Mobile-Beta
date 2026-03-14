@@ -38,6 +38,10 @@ jobs:
         env:
             DISPLAY: :99.0
 
+      - name: Fix Xcode project file
+        run: |
+          sed -i '' 's/objectVersion = 50;/objectVersion = 46;/' build/ios.xcodeproj/project.pbxproj
+
       - name: Set iOS Deployment Target
         run: sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/' build/ios.xcodeproj/project.pbxproj
 
@@ -45,7 +49,7 @@ jobs:
         run: |
           xcodebuild \
           -project build/ios.xcodeproj \
-          -scheme Paper_Lily \
+          -scheme ios \
           -configuration Release \
           -destination generic/platform=iOS \
           -archivePath build/Paper_Lily.xcarchive \
