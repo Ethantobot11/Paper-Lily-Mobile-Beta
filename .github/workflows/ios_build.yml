@@ -13,8 +13,8 @@ jobs:
 
       - name: Download Godot
         run: |
-          wget -O Godot_v3.5.3-mono_osx.universal.zip "https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_osx.universal.zip&platform=macos.universal"
-          unzip Godot_v3.5.3-mono_osx.universal.zip -d godot
+          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip
+          unzip Godot_v3.5.3-stable_osx.universal.zip -d godot
           sudo mv godot/Godot.app /Applications/Godot.app
           sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
 
@@ -22,11 +22,16 @@ jobs:
         run: |
           mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
           cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-          wget https://downloads.godotengine.org/3.5.3/Godot_v3.5.3-stable_export_templates.tpz
+          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
           tar -xzf Godot_v3.5.3-stable_export_templates.tpz
           mv templates/* .
           rm -rf templates
 
+      - name: Create build directory
+        run: |
+          rm -rf build
+          mkdir build
+          
       - name: Export iOS project
         run: godot --export "iOS" ./build/ios
         env:
