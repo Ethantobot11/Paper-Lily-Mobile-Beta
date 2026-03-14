@@ -1,7 +1,5 @@
 name: Build iOS
 
-name: Build iOS
-
 on:
   workflow_dispatch:
   workflow_call:
