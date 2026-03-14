@@ -6,30 +6,30 @@ permissions: write-all
 jobs:
   build-android:
     uses: ./.github/workflows/android-build.yml
-  build-ios:
-    uses: ./.github/workflows/ios_build.yml
+  #build-ios:
+    #uses: ./.github/workflows/ios_build.yml
 
   Releaser:
-    needs: [build-android, build-ios]
+    needs: [build-android]
     runs-on: ubuntu-latest
     steps:
       - name: Download Android Build
         uses: actions/download-artifact@main
         with:
-          name: Codename Engine Android
+          name: Paper-Lily
           path: ${{ github.workspace }}
 
       - name: Move Android File
-        run: mv "${{ github.workspace }}build/android/game.apk" "${{ github.workspace }}/build/android/PaperLily-Android.apk"
+        run: mv "${{ github.workspace }}build/android/Paper-Lily.apk" "${{ github.workspace }}/build/android/PaperLily-Android.apk"
 
-      - name: Download iOS Build
-        uses: actions/download-artifact@main
-        with:
-          name: Codename Engine iOS
-          path: ${{ github.workspace }}
+      #- name: Download iOS Build
+        #uses: actions/download-artifact@main
+       # with:
+         # name: Codename Engine iOS
+         # path: ${{ github.workspace }}
 
-      - name: Move iOS File
-        run: mv "${{ github.workspace }}build/App.ipa" "${{ github.workspace }}build/PaperLily-iOS.ipa"
+      #- name: Move iOS File
+       # run: mv "${{ github.workspace }}build/*.ipa" "${{ github.workspace }}build/PaperLily-iOS.ipa"
 
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
@@ -38,5 +38,5 @@ jobs:
           tag_name: "beta v1.5.6"
           prerelease: true
           files: |
-            ${{ github.workspace }}/*.apk
-            ${{ github.workspace }}/*.ipa
+            ${{ github.workspace }}/Paper-Lily-Android.apk
+       #     ${{ github.workspace }}/*.ipa

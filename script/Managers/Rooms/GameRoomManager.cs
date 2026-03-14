@@ -194,7 +194,7 @@ namespace LacieEngine.Rooms
 			try
 			{
 				Game.Events.ClearMappings();
-				Game.Memory.Cache("res://resources/nodes/rooms/" + room + ".tscn");
+				//Game.Memory.Cache("res://resources/nodes/rooms/" + room + ".tscn");
 				Game.Events.LoadMappings(room);
 				await Game.Memory.WaitForCompletion();
 				CurrentRoom = GDUtil.Instance<GameRoom>("res://resources/nodes/rooms/" + room + ".tscn");
