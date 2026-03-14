@@ -13,6 +13,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
 
       # 1. Setup Java 11
       - name: Setup Java
