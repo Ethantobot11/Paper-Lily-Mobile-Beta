@@ -6,11 +6,11 @@ permissions: write-all
 jobs:
   build-android:
     uses: ./.github/workflows/android-build.yml
-  build-ios:
-    uses: ./.github/workflows/ios_build.yml
+  #build-ios:
+    #uses: ./.github/workflows/ios_build.yml
 
   Releaser:
-    needs: [build-android, build-ios]
+    needs: [build-android] #,build-ios]
     runs-on: ubuntu-latest
     steps:
       - name: Download Android Build
@@ -22,14 +22,14 @@ jobs:
       - name: Move Android File
         run: mv "${{ github.workspace }}/Paper-Lily.apk" "${{ github.workspace }}/Paper-Lily-Android.apk"
 
-      - name: Download iOS Build
-        uses: actions/download-artifact@main
-        with:
-          name: Paper-Lily
-          path: ${{ github.workspace }}
+      #- name: Download iOS Build
+        #uses: actions/download-artifact@main
+        #with:
+          #name: Paper-Lily
+          #path: ${{ github.workspace }}
 
-      - name: Move iOS File
-        run: mv "${{ github.workspace }}build/Paper-Lily.ipa" "${{ github.workspace }}PaperLily-iOS.ipa"
+      #- name: Move iOS File
+        #run: mv "${{ github.workspace }}build/Paper-Lily.ipa" "${{ github.workspace }}PaperLily-iOS.ipa"
 
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
@@ -39,4 +39,4 @@ jobs:
           prerelease: false
           files: |
             ${{ github.workspace }}/Paper-Lily-Android.apk
-            ${{ github.workspace }}/Paper-Lily-iOS.ipa
+      #     ${{ github.workspace }}/Paper-Lily-iOS.ipa
