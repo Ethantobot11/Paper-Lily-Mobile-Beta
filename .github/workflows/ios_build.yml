@@ -11,6 +11,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Set Xcode version
+        uses: maxim-lobanov/setup-xcode@v2
+        with:
+          xcode-version: '15.2'
+
       - name: Download Godot
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip
