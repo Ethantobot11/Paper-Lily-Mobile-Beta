@@ -7,62 +7,19 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v2
 
-      - name: Download Godot
-        run: |
-          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip
-          unzip Godot_v3.5.3-stable_osx.universal.zip -d godot
-          sudo mv godot/Godot.app /Applications/Godot.app
-          sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
-
-      - name: Download Godot Export Templates
-        run: |
-          mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-          cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
-          tar -xzf Godot_v3.5.3-stable_export_templates.tpz
-          mv templates/* .
-          rm -rf templates
-
-      - name: Create build directory
-        run: |
-          rm -rf build
-          mkdir build
-
-      - name: Export iOS project
-        run: godot --export "iOS" build/ios
-        env:
-            DISPLAY: :99.0
-
-      - name: Debug exported files
-        run: |
-          ls build
-          ls build/ios.xcodeproj
-          cat build/ios.xcodeproj/project.pbxproj | head -n 200
-
-      - name: Fix plist formatting
-        run: |
-          plutil -convert xml1 build/ios/export_options.plist
-          plutil -convert xml1 build/ios/ios-Info.plist
-
-      - name: Fix Xcode project file
-        run: |
-          sed -i '' 's/objectVersion = 50;/objectVersion = 46;/' build/ios.xcodeproj/project.pbxproj
-
-      - name: Set iOS Deployment Target
-        run: sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/' build/ios.xcodeproj/project.pbxproj
+      - name: Debug Xcode project
+        run: ls ios
 
       - name: Build iOS project
         run: |
           xcodebuild \
-          -project build/ios.xcodeproj \
+          -project ios/ios.xcodeproj \
           -scheme ios \
           -configuration Release \
-          -destination generic/platform=iOS \
           -archivePath build/ios.xcarchive \
           archive \
           CODE_SIGN_IDENTITY="" \
@@ -72,7 +29,7 @@ jobs:
       - name: Create IPA
         run: |
           mkdir Payload
-          cp -r build/Paper_Lily.xcarchive/Products/Applications/ios.app Payload/
+          cp -r build/ios.xcarchive/Products/Applications/ios.app Payload/
           zip -r ios.ipa Payload
 
       - name: Upload IPA
