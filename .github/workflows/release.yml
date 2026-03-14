@@ -20,7 +20,7 @@ jobs:
           path: ${{ github.workspace }}
 
       - name: Move Android File
-        run: mv "${{ github.workspace }}build/android/*.apk" "${{ github.workspace }}/build/android/*-Android.apk"
+        run: mv "${{ github.workspace }}/*.apk" "${{ github.workspace }}/*-Android.apk"
 
       #- name: Download iOS Build
         #uses: actions/download-artifact@main
