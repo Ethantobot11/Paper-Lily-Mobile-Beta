@@ -27,7 +27,7 @@ namespace LacieEngine.Core
 			Log.Init();
 			Log.Info("Dependency injector initialized!");
 			TranslationServer.SetLocale(ProjectSettings.GetSetting("lacie_engine/core/translation_base_locale") as string);
-			string packPath = OS.get_user_data_dir() + "pack/";
+			string packPath = "res://pack/";
 			List<string> list = GDUtil.ListFilesInPath(packPath, null, ".pck", fullPath: false);
 			list.Sort();
 			foreach (string filename in list)
@@ -69,8 +69,16 @@ namespace LacieEngine.Core
 
 		private async void PerformLoading()
 		{
-			await GDUtil.DelayOneFrame();
+			//await GDUtil.DelayOneFrame();
 			await Game.Screen.ShowLoadingScreenInstantly();
+			Task task = Task.Run(delegate
+			{
+				LoadingProc();
+			});
+			while (!task.IsCompleted)
+			{
+				await GDUtil.DelayOneFrame();
+			}
 			await Game.Screen.HideLoadingScreen();
 			Log.Info(Game.Settings.ProductName, " ", Game.Settings.ProductVersion, ", Game start!");
 			if (Game.Language.GetAvailableLanguages().Count > 1 && Game.Settings.TranslationSelected.IsNullOrEmpty())
@@ -111,7 +119,15 @@ namespace LacieEngine.Core
 
 		private void SystemPreload()
 		{
+			Log.Info("Loading fonts...");
+			foreach (string filename in GDUtil.ListFilesInPath("res://resources/font/", ".tres"))
+			{
+				Game.Memory.SystemCache(filename);
+			}
 			Log.Info("Loading system nodes...");
+			Game.Memory.SystemCache("res://resources/nodes/common/Player.tscn");
+			Game.Memory.SystemCache("res://resources/nodes/common/PlayerSidescroller.tscn");
+			Game.Memory.SystemCache("res://resources/nodes/common/StoryPlayer.tscn");
 		}
 
 		private static void ShowLanguageSelection()
