@@ -34,9 +34,9 @@ jobs:
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "release-v1.3.1"
-          tag_name: "beta-v1.5.7"
-          prerelease: false
+          name: "beta-v0"
+          tag_name: "beta-0.0.4"
+          prerelease: true
           files: |
             ${{ github.workspace }}/Paper-Lily-Android.apk
       #     ${{ github.workspace }}/Paper-Lily-iOS.ipa
