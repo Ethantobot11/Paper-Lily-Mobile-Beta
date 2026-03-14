@@ -31,6 +31,23 @@ jobs:
       #- name: Move iOS File
         #run: mv "${{ github.workspace }}build/Paper-Lily.ipa" "${{ github.workspace }}PaperLily-iOS.ipa"
 
+      - name: Get next tag
+        id: tag
+        run: |
+          git fetch --tags
+          latest=$(git tag -l "beta-*" | sort -V | tail -n 1)
+
+          if [ -z "$latest" ]; then
+            next="beta-0.0.6"
+          else
+            version=${latest#beta-}
+            IFS='.' read -r major minor patch <<< "$version"
+            patch=$((patch+1))
+          next="beta-$major.$minor.$patch"
+          fi
+
+              echo "tag=$next" >> $GITHUB_OUTPUT
+
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
         with:
