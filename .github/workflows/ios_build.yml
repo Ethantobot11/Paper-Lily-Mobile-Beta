@@ -6,7 +6,7 @@ on:
 
 jobs:
   export-ios:
-    runs-on: macos-latest
+    runs-on: macos-14-large
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
       - name: Set Xcode version
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '15.0-beta'
+          xcode-version: '15.2'
 
       - name: Download Godot Export Templates
         run: |
