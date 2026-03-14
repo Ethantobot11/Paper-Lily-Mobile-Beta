@@ -38,6 +38,11 @@ jobs:
         env:
             DISPLAY: :99.0
 
+      - name: Fix plist formatting
+        run: |
+          plutil -convert xml1 build/ios/export_options.plist
+          plutil -convert xml1 build/ios/ios-Info.plist
+
       - name: Fix Xcode project file
         run: |
           sed -i '' 's/objectVersion = 50;/objectVersion = 46;/' build/ios.xcodeproj/project.pbxproj
