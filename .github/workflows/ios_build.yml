@@ -14,7 +14,7 @@ jobs:
 
     - name: Download Godot
       run: |
-        wget https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_x11_64.zip&platform=linux.64
+        wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip
         unzip Godot_v3.5.3-stable_osx.universal.zip -d godot
         sudo mv godot/Godot.app /Applications/Godot.app
         sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
