@@ -6,15 +6,12 @@ on:
 
 jobs:
   export-ios:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Xcode version
-        uses: maxim-lobanov/setup-xcode@v2
-        with:
-          xcode-version: '15.2'
+      
 
       - name: Download Godot
         run: |
@@ -22,6 +19,11 @@ jobs:
           unzip Godot_v3.5.3-stable_osx.universal.zip -d godot
           sudo mv godot/Godot.app /Applications/Godot.app
           sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
+
+      - name: Set Xcode version
+        uses: maxim-lobanov/setup-xcode@v2
+        with:
+          xcode-version: '15.2'
 
       - name: Download Godot Export Templates
         run: |
