@@ -27,34 +27,44 @@ namespace LacieEngine.Core
 			CallDeferred("Init");
 		}
 
-		private void CopyPckStream()
+		private void CopyPacksToUser()
 		{
-    		string source = "res://pack/*.pck";
-    		string dest = "user://*.pck";
+    		string srcPath = "res://pack/";
+    		string dstPath = "user://";
 
-    		File src = new File();
-    		File dst = new File();
+    		List<string> packs = GDUtil.ListFilesInPath(srcPath, null, ".pck", false);
 
-    		if (!src.FileExists(dest))
-    	{
-        	src.Open(source, File.ModeFlags.Read);
-        	dst.Open(dest, File.ModeFlags.Write);
+    		foreach (string pack in packs)
+    		{
+        			string src = srcPath + pack;
+        			string dst = dstPath + pack;
 
-        	while (!src.EofReached())
+        			File srcFile = new File();
+        			File dstFile = new File();
+
+        	if (!srcFile.FileExists(dst))
         	{
-            dst.StoreBuffer(src.GetBuffer(8192));
-        	}
+            	GD.Print("Copying: " + pack);
 
-        	src.Close();
-        	dst.Close();
+            	srcFile.Open(src, File.ModeFlags.Read);
+            	dstFile.Open(dst, File.ModeFlags.Write);
+
+            	while (!srcFile.EofReached())
+            	{
+                	dstFile.StoreBuffer(srcFile.GetBuffer(8192));
+            	}
+
+            	srcFile.Close();
+            	dstFile.Close();
+        	}
     	}
-	}
+		}
 
 		public void Init()
 		{
 			Injector.Init();
 			Log.Init();
-			CopyPckStream();
+			CopyPacksToUser();
 			Log.Info("Dependency injector initialized!");
 			TranslationServer.SetLocale(ProjectSettings.GetSetting("lacie_engine/core/translation_base_locale") as string);
 			string packPath = "user://pack/";
