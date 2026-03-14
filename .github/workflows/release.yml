@@ -20,7 +20,7 @@ jobs:
           path: ${{ github.workspace }}
 
       - name: Move Android File
-        run: mv "${{ github.workspace }}/PaperLily-release.apk" "${{ github.workspace }}/PaperLily-Android.apk"
+        run: mv "${{ github.workspace }}build/android/game.apk" "${{ github.workspace }}/build/android/PaperLily-Android.apk"
 
       - name: Download iOS Build
         uses: actions/download-artifact@main
