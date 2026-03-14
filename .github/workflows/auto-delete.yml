@@ -1,4 +1,4 @@
-name: Cleanup Failed or Stopped Workflows
+name: Cleanup Failed or Cancelled Workflows
 
 permissions: write-all
 
@@ -11,7 +11,7 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete Failed or Stopped Runs
+      - name: Delete Failed or Cancelled Runs
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -19,7 +19,7 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Get workflow runs (up to 100 most recent)
+            // Get the 100 most recent workflow runs
             const runs = await github.rest.actions.listWorkflowRunsForRepo({
               owner,
               repo,
@@ -32,8 +32,10 @@ jobs:
               const created = new Date(run.created_at);
               const ageMinutes = (now - created) / 1000 / 60;
 
-              // Delete if failed or cancelled and older than 60 minutes
-              if ((run.status === 'completed') && (run.conclusion === 'failure' || run.conclusion === 'cancelled') && ageMinutes > 60) {
+              // Delete runs if failed or cancelled and older than 60 minutes
+              if (run.status === 'completed' && 
+                  (run.conclusion === 'failure' || run.conclusion === 'cancelled' || run.conclusion === 'skipped') &&
+                  ageMinutes > 60) {
                 console.log(`Deleting run #${run.id} (${run.name}) created at ${run.created_at}, conclusion: ${run.conclusion}`);
                 await github.rest.actions.deleteWorkflowRun({
                   owner,
