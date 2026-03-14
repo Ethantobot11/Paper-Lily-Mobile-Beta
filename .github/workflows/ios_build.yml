@@ -1,62 +1,82 @@
 name: Build iOS
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Download Godot
-      run: |
-        wget https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_x11_64.zip&platform=linux.64
-        unzip Godot_v3.5.3-stable_osx.universal.zip -d godot
-        sudo mv godot/Godot.app /Applications/Godot.app
-        sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
+      - name: Download Godot
+        run: |
+          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip
+          unzip Godot_v3.5.3-stable_osx.universal.zip -d godot
+          sudo mv godot/Godot.app /Applications/Godot.app
+          sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
 
-    - name: Download Godot Export Templates
-      run: |
-        mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-        cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-        wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
-        tar -xzf Godot_v3.5.3-stable_export_templates.tpz -C ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-        cd templates
-        mv * ..
-        cd ..
-        ls
+      - name: Download Godot Export Templates
+        run: |
+          mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
+          cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
+          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
+          tar -xzf Godot_v3.5.3-stable_export_templates.tpz
+          mv templates/* .
+          rm -rf templates
 
-    - name: Create build directory
-      run: mkdir -p build
+      - name: Create build directory
+        run: |
+          rm -rf build
+          mkdir build
 
-    - name: Export iOS project
-      run: godot --export "iOS" build/Paper_Lily.xcodeproj
-      env:
-        DISPLAY: :99.0
+      - name: Export iOS project
+        run: godot --export "iOS" build/ios
+        env:
+            DISPLAY: :99.0
 
-    - name: Build iOS project
-      run: xcodebuild -project build/Paper_Lily.xcodeproj -scheme Paper_Lily -configuration Development -archivePath build/Paper_Lily.xcarchive archive
+      - name: Debug exported files
+        run: |
+          ls build
+          ls build/ios.xcodeproj
+          cat build/ios.xcodeproj/project.pbxproj | head -n 200
 
-    - name: Export IPA
-      run: | 
-        cd build
-        cd Paper_Lily.xcarchive
-        cd Products
-        cd Applications
-        mkdir Payload
-        mv Paper_Lily.app Payload/
-        zip -r App.ipa Payload/
-        mv App.ipa ../../../
-    - name: Upload IPA to GitHub Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Ipa
-        path: build/App.ipa
+      - name: Fix plist formatting
+        run: |
+          plutil -convert xml1 build/ios/export_options.plist
+          plutil -convert xml1 build/ios/ios-Info.plist
+
+      - name: Fix Xcode project file
+        run: |
+          sed -i '' 's/objectVersion = 50;/objectVersion = 46;/' build/ios.xcodeproj/project.pbxproj
+
+      - name: Set iOS Deployment Target
+        run: sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/' build/ios.xcodeproj/project.pbxproj
+
+      - name: Build iOS project
+        run: |
+          xcodebuild \
+          -project build/ios.xcodeproj \
+          -scheme ios \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          -archivePath build/ios.xcarchive \
+          archive \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
+
+      - name: Create IPA
+        run: |
+          mkdir Payload
+          cp -r build/Paper_Lily.xcarchive/Products/Applications/ios.app Payload/
+          zip -r ios.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ipa
+          path: ios.ipa
