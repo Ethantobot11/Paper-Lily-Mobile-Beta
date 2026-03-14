@@ -29,7 +29,7 @@ jobs:
           path: ${{ github.workspace }}
 
       - name: Move iOS File
-        run: mv "${{ github.workspace }}/PaperLily.ipa" "${{ github.workspace }}/PaperLily-iOS.ipa"
+        run: mv "${{ github.workspace }}build/App.ipa" "${{ github.workspace }}build/PaperLily-iOS.ipa"
 
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
