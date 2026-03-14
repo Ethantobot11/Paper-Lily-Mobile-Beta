@@ -1,6 +1,8 @@
 name: "Godot Android Build"
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  workflow_call:
 
 env:
   # Opt-in to Node.js 24 for future-proofing
