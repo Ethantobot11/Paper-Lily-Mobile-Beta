@@ -31,18 +31,18 @@ namespace LacieEngine.Core
 
 		public void Cache(string path)
 		{
-			/*if (!userCache.ContainsKey(path))
+			if (!userCache.ContainsKey(path))
 			{
 				_loadQueue.Enqueue(path);
-			}*/
+			}
 		}
 
 		public void SystemCache(string path)
 		{
-			/*if (!systemCache.ContainsKey(path))
+			if (!systemCache.ContainsKey(path))
 			{
 				systemCache[path] = ResourceLoader.Load(path);
-			}*/
+			}
 		}
 
 		public void Clean()
@@ -62,9 +62,9 @@ namespace LacieEngine.Core
 
 		private void ForceGC()
 		{
-			/*GC.Collect();
+			GC.Collect();
 			GC.WaitForPendingFinalizers();
-			GC.Collect();*/
+			GC.Collect();
 		}
 
 		private void StartBackgroundLoading()
