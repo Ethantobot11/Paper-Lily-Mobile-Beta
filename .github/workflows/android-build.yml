@@ -1,6 +1,8 @@
 name: "Godot Android Build"
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  workflow_call:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
