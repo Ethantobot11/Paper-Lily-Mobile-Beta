@@ -14,6 +14,12 @@ namespace LacieEngine.Core
 	{
 		public override void _Ready()
 		{
+			File f = new File();
+			f.Open("user://test.txt", File.ModeFlags.Write);
+			f.StoreString("hello");
+			f.Close();
+
+			GD.Print("User dir: ", OS.GetUserDataDir());
 			Log.Info("Initializing Lacie Engine...");
 			System.Threading.Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
 			CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
@@ -21,35 +27,34 @@ namespace LacieEngine.Core
 			CallDeferred("Init");
 		}
 
-		private void EnsurePckCopied()
+		private void CopyPckStream()
 		{
     		string source = "res://pack/*.pck";
-    		string destination = "user://*.pck";
+    		string dest = "user://*.pck";
 
-    		Directory dir = new Directory();
-    		File file = new File();
+    		File src = new File();
+    		File dst = new File();
 
-    		if (!file.FileExists(destination))
-    		{
-        		GD.Print("Copying PCK to user storage...");
+    		if (!src.FileExists(dest))
+    	{
+        	src.Open(source, File.ModeFlags.Read);
+        	dst.Open(dest, File.ModeFlags.Write);
 
-        		file.Open(source, File.ModeFlags.Read);
-        		byte[] data = file.GetBuffer((int)file.GetLen());
-        		file.Close();
+        	while (!src.EofReached())
+        	{
+            dst.StoreBuffer(src.GetBuffer(8192));
+        	}
 
-        		file.Open(destination, File.ModeFlags.Write);
-        		file.StoreBuffer(data);
-        		file.Close();
-
-        		GD.Print("PCK copied!");
-    		}
-		}
+        	src.Close();
+        	dst.Close();
+    	}
+	}
 
 		public void Init()
 		{
 			Injector.Init();
 			Log.Init();
-			EnsurePckCopied();
+			CopyPckStream();
 			Log.Info("Dependency injector initialized!");
 			TranslationServer.SetLocale(ProjectSettings.GetSetting("lacie_engine/core/translation_base_locale") as string);
 			string packPath = "user://pack/";
