@@ -1,39 +1,47 @@
-name: Build iOS
+name: "Godot iOS Build"
 
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  build:
+  export-ios:
     runs-on: macos-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Debug Xcode project
-        run: ls ios
-
-      - name: Build iOS project
+      - name: Download Godot
         run: |
-          xcodebuild \
-          -project ios/ios.xcodeproj \
-          -scheme ios \
-          -configuration Release \
-          -archivePath build/ios.xcarchive \
-          archive \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO
+          wget https://downloads.godotengine.org/3.5.3/Godot_v3.5.3-stable_osx.universal.zip
+          unzip Godot_v3.5.3-stable_osx.universal.zip -d godot
+          sudo mv godot/Godot.app /Applications/Godot.app
+          sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
 
-      - name: Create IPA
+      - name: Download Godot Export Templates
         run: |
-          mkdir Payload
-          cp -r build/ios.xcarchive/Products/Applications/ios.app Payload/
-          zip -r ios.ipa Payload
+          mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
+          cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
+          wget https://downloads.godotengine.org/3.5.3/Godot_v3.5.3-stable_export_templates.tpz
+          tar -xzf Godot_v3.5.3-stable_export_templates.tpz
+          mv templates/* .
+          rm -rf templates
+
+      - name: Export iOS project
+        run: godot --export "iOS" ./build/ios
+        env:
+          DISPLAY: :99.0
+
+      - name: Build IPA
+        run: |
+          xcodebuild -project build/ios.xcodeproj -scheme ios \
+            -configuration Release \
+            -archivePath build/ios.xcarchive \
+            archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          xcodebuild -exportArchive -archivePath build/ios.xcarchive -exportPath build -exportOptionsPlist build/export_options.plist
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Ipa
-          path: ios.ipa
+          name: ipa
+          path: build/*.ipa
