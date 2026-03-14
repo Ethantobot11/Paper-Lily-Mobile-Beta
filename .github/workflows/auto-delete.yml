@@ -4,8 +4,9 @@ permissions: write-all
 
 # Run every 5 minutes (GitHub schedules are in UTC)
 on:
-  schedule:
-    - cron: "*/5 * * * *"
+  workflow_dispatch:   # Manual trigger
+  schedule:            # Scheduled trigger
+    - cron: "*/5 * * * *"   # Every 5 minutes
 
 jobs:
   cleanup:
