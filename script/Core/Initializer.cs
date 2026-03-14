@@ -27,6 +27,14 @@ namespace LacieEngine.Core
 			Log.Init();
 			Log.Info("Dependency injector initialized!");
 			TranslationServer.SetLocale(ProjectSettings.GetSetting("lacie_engine/core/translation_base_locale") as string);
+			string packPath = "res://pack/";
+			List<string> list = GDUtil.ListFilesInPath(packPath, null, ".pck", fullPath: false);
+			list.Sort();
+			foreach (string filename in list)
+			{
+				Log.Info("Loading PCK file: ", filename);
+				ProjectSettings.LoadResourcePack(packPath + filename);
+			}
 			foreach (string filename2 in GDUtil.ListFilesInPath("res://definitions/config/", ".cfg"))
 			{
 				Log.Debug("Processing external settings: ", filename2);
