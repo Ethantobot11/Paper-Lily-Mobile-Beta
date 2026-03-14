@@ -34,7 +34,7 @@ jobs:
 
               // Delete runs if failed or cancelled and older than 60 minutes
               if (run.status === 'completed' && 
-                  (run.conclusion === 'failure' || run.conclusion === 'cancelled' || run.conclusion === 'skipped') &&
+                  (run.conclusion === 'failure' || run.conclusion === 'cancelled') &&
                   ageMinutes > 60) {
                 console.log(`Deleting run #${run.id} (${run.name}) created at ${run.created_at}, conclusion: ${run.conclusion}`);
                 await github.rest.actions.deleteWorkflowRun({
