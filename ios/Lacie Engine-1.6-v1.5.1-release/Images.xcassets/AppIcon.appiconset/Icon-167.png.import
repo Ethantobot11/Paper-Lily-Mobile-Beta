@@ -2,15 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/Icon-167.png-b209e8597f27a8b118897549e6845053.stex"
+path="res://.import/Icon-167.png-08cd0b4059f50b37ca254252074b46a0.stex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Lacie Engine-1.6-v1.5.1-release/Images.xcassets/AppIcon.appiconset/Icon-167.png"
-dest_files=[ "res://.import/Icon-167.png-b209e8597f27a8b118897549e6845053.stex" ]
+source_file="res://ios/Lacie Engine-1.6-v1.5.1-release/Images.xcassets/AppIcon.appiconset/Icon-167.png"
+dest_files=[ "res://.import/Icon-167.png-08cd0b4059f50b37ca254252074b46a0.stex" ]
 
 [params]
 
