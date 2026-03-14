@@ -90,7 +90,7 @@ jobs:
       - name: Export APK
         run: |
           mkdir -p build/android
-          godot --no-window --export "Android" build/android/game.apk
+          godot --export "Android" build/android/game.apk
 
       # Upload
       - name: Upload Artifact
