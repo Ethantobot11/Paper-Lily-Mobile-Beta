@@ -16,6 +16,11 @@ jobs:
           brew update
           brew install mono-mdk
 
+      - name: Install .NET 6 SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '10.0.0'
+
       - name: Install NuGet
         run: |
           brew update
