@@ -23,12 +23,14 @@ jobs:
           sudo mv godot/Godot_mono.app /Applications/Godot_mono.app
           sudo ln -s /Applications/Godot_mono.app/Contents/MacOS/Godot /usr/local/bin/godot
 
-      - name: Download Godot Export Templates
+      - name: Install Godot Mono export templates
         run: |
           mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono
           cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz
           unzip Godot_v3.5.3-stable_mono_export_templates.tpz
+          mv templates/* .
+          rm -rf templates
 
       - name: Create build directory
         run: |
