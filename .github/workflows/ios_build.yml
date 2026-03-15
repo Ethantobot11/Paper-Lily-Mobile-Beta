@@ -16,11 +16,6 @@ jobs:
           brew update
           brew install mono
 
-      - name: Install NuGet
-        run: |
-          brew update
-          brew install nuget
-
       - name: Download Godot
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
@@ -28,14 +23,16 @@ jobs:
           sudo mv godot/Godot_mono.app /Applications/Godot_mono.app
           sudo ln -s /Applications/Godot_mono.app/Contents/MacOS/Godot /usr/local/bin/godot
 
-      - name: Install Godot export templates
+      - name: Download Godot Export Templates
         run: |
           mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
           cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz
-          unzip Godot_v3.5.3-stable_mono_export_templates.tpz
-          mv templates/* .
-          rm -rf templates
+          tar -xzf Godot_v3.5.3-stable_mono_export_templates.tpz -C ~/Library/Application\ Support/Godot/templates/3.5.3.stable
+          cd templates
+          mv * ..
+          cd ..
+          ls
 
       - name: Create build directory
         run: |
