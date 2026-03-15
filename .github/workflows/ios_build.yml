@@ -1,4 +1,4 @@
-name: "Godot iOS Build"
+name: "Godot iOS Build (Unsigned for TrollStore)"
 
 on:
   workflow_dispatch:
@@ -10,84 +10,59 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Install Mono & MSBuild
-        run: |
-          brew update
-          brew install mono-mdk
-
-      - name: Install .NET 6.0 SDK
-        uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '6.0.x'
+          lfs: true
 
-      - name: Download Godot 3.5.3 Mono
-        run: |
-          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
-          unzip Godot_v3.5.3-stable_mono_osx.universal.zip -d godot
-          sudo mv godot/Godot_mono.app /Applications/Godot_mono.app
-          sudo ln -s /Applications/Godot_mono.app/Contents/MacOS/Godot /usr/local/bin/godot
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.x'
 
-      - name: Install Godot Mono export templates
+      # 1. Setup Godot Mono & Templates
+      - name: Setup Godot Mono
         run: |
-          mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono
-          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz
-          unzip Godot_v3.5.3-stable_mono_export_templates.tpz
-          mv templates/* ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono/
-          rm -rf templates Godot_v3.5.3-stable_mono_export_templates.tpz
-
-      - name: Build Mono Solution
-        run: |
-          # 1. Clear old artifacts
-          rm -rf .mono/
+          wget -nv -O Godot.zip "https://downloads.godotengine.org/3.5.3/mono/Godot_v3.5.3-stable_mono_osx.universal.zip"
+          unzip -q -o Godot.zip
+          echo "$GITHUB_WORKSPACE/Godot_mono.app/Contents/MacOS" >> $GITHUB_PATH
           
-          # 2. Tell Godot to generate the Glue and build the solution itself.
-          # This is more reliable than raw 'dotnet build' for Godot 3.5
-          godot --no-window --build-solutions --quit
+          wget -nv -O Templates.tpz "https://downloads.godotengine.org/3.5.3/mono/Godot_v3.5.3-stable_mono_export_templates.tpz"
+          unzip -q -o Templates.tpz -d /tmp/godot_templates
+          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-          # 3. Ensure the export directory exists
-          mkdir -p .mono/temp/bin/ExportRelease/
+      # 2. Export Godot to Xcode Project
+      - name: Export Godot Project
+        run: |
+          mkdir -p build/ios
+          Godot --no-window --export "iOS" build/ios/Paper-Lily.xcodeproj
+
+      # 3. Build Unsigned .app bundle
+      - name: Compile Xcode Project (Unsigned)
+        run: |
+          cd build/ios
+          xcodebuild build \
+            -project Paper-Lily.xcodeproj \
+            -scheme "Paper-Lily" \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      # 4. Manually Package into IPA
+      # TrollStore accepts .ipa files which are just 'Payload/YourApp.app' zipped up.
+      - name: Package IPA for TrollStore
+        run: |
+          cd build/ios
+          mkdir -p Payload
+          # Find the compiled .app file and move it into Payload
+          cp -r build/Release-iphoneos/Paper-Lily.app Payload/
+          zip -r Paper-Lily-Unsigned.ipa Payload
           
-          # 4. Copy the compiled assemblies from the solution build
-          # Godot usually builds to .mono/temp/bin/Release or bin/Release
-          if [ -d "bin/Release" ]; then
-            cp -rv bin/Release/* .mono/temp/bin/ExportRelease/
-          elif [ -d ".mono/temp/bin/Release" ]; then
-            cp -rv .mono/temp/bin/Release/* .mono/temp/bin/ExportRelease/
-          fi
-
-      - name: Export iOS project
-        run: |
-          mkdir -p build
-          godot --no-window --export "iOS" build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj
-
-      - name: Build IPA
-        run: |
-          if [ ! -d "build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj" ]; then
-            echo "Xcode project not found!"
-            exit 1
-          fi
-
-          xcodebuild -project "build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj" \
-          -scheme "Lacie_Engine-1.6-v1.5.1-release" \
-          -configuration Release \
-          -destination 'generic/platform=iOS' \
-          -archivePath build/Lacie_Engine.xcarchive \
-          ARCHS=arm64 \
-          IPHONEOS_DEPLOYMENT_TARGET=12.0 \
-          archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
-
-          # We use || true so the workflow finishes even if signing fails, 
-          # allowing you to see the xcodeproj output.
-          xcodebuild -exportArchive \
-          -archivePath build/Lacie_Engine.xcarchive \
-          -exportPath build \
-          -exportOptionsPlist export_options.plist || echo "Check if export_options.plist exists in repo root."
-
+      # 5. Upload Artifact
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Paper-Lily-iOS
-          path: |
-            build/*.ipa
-            build/*.xcodeproj
+          name: Paper-Lily-TrollStore
+          path: build/ios/Paper-Lily-Unsigned.ipa
