@@ -25,8 +25,8 @@ jobs:
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
           unzip Godot_v3.5.3-stable_mono_osx.universal.zip -d godot
-          sudo mv Godot_mono.app /Applications/Godot_mono.app 
-          sudo ln -s /Applications/Godot_mono.app/Contents/Godot /usr/local/bin/godot
+          sudo mv godot/Godot_mono.app /Applications/Godot_mono.app
+          sudo ln -s /Applications/Godot_mono.app/Contents/MacOS/Godot /usr/local/bin/godot
 
       - name: Install Godot export templates
         run: |
