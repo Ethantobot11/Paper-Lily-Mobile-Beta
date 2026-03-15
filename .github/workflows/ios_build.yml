@@ -16,7 +16,7 @@ jobs:
           brew update
           brew install mono-mdk
 
-      - name: Install .NET 6 SDK
+      - name: Install .NET 10 SDK
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '10.0.105'
@@ -53,14 +53,14 @@ jobs:
           dotnet build "Lacie_Engine.csproj" /p:Configuration=Release
           
       - name: Export iOS project
-        run: godot --export "iOS" build/Lacie/ Engine-1.6-v1.5.1-release.xcodeproj
+        run: godot --export "iOS" build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj
         env:
           DISPLAY: :99.0
 
       - name: Build IPA
         run: |
-          xcodebuild -project "build/Lacie/ Engine-1.6-v1.5.1-release.xcodeproj" \
-          -scheme "Lacie/ Engine-1.6-v1.5.1-release" \
+          xcodebuild -project "build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj" \
+          -scheme "Lacie_Engine-1.6-v1.5.1-release" \
           -configuration Release \
           -destination 'generic/platform=iOS' \
           -archivePath build/Lacie_Engine.xcarchive \
@@ -75,4 +75,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Paper-Lily
-          path: build/Lacie/ Engine-1.6-v1.5.1-release.ipa
+          path: build/Lacie_Engine-1.6-v1.5.1-release.ipa
