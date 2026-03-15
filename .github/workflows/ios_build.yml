@@ -21,12 +21,19 @@ jobs:
       # 1. Setup Godot Mono & Templates
       - name: Setup Godot Mono
         run: |
-          wget -nv -O Godot.zip "https://downloads.godotengine.org/3.5.3/mono/Godot_v3.5.3-stable_mono_osx.universal.zip"
+          # Use the direct TuxFamily mirror to avoid HTML redirects
+          wget -nv -O Godot.zip "https://downloads.tuxfamily.org/godotengine/3.5.3/mono/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot.zip
+          
+          # Move and rename to ensure the path is predictable
+          mv Godot_v3.5.3-stable_mono_osx.universal/Godot_mono.app .
           echo "$GITHUB_WORKSPACE/Godot_mono.app/Contents/MacOS" >> $GITHUB_PATH
           
-          wget -nv -O Templates.tpz "https://downloads.godotengine.org/3.5.3/mono/Godot_v3.5.3-stable_mono_export_templates.tpz"
+          # Download Templates from the same reliable mirror
+          wget -nv -O Templates.tpz "https://downloads.tuxfamily.org/godotengine/3.5.3/mono/Godot_v3.5.3-stable_mono_export_templates.tpz"
           unzip -q -o Templates.tpz -d /tmp/godot_templates
+          
+          # Prepare the local template folder
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
