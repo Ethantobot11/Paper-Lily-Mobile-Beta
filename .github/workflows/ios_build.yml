@@ -50,7 +50,7 @@ jobs:
 
       - name: Build Mono assemblies
         run: |
-          dotnet build "Lacie_Engine_Project.csproj" /p:Configuration=Release
+          dotnet build "Lacie_Engine.csproj" /p:Configuration=Release
           
       - name: Export iOS project
         run: godot --export "iOS" build/Lacie/ Engine-1.6-v1.5.1-release.xcodeproj
