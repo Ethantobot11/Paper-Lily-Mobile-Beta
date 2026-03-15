@@ -10,10 +10,10 @@ config_version=4
 
 [application]
 
-config/name="Paper Lily"
+config/name="Paper_Lily"
 run/main_scene="res://Initializer.tscn"
 config/use_custom_user_dir=true
-config/custom_user_dir_name="Paper Lily"
+config/custom_user_dir_name="Paper_Lily"
 config/project_settings_override="user://engine.cfg"
 run/low_processor_mode=true
 boot_splash/image="res://icon.png"
@@ -217,7 +217,7 @@ file_logging/log_path="user://logs/game.log"
 [mono]
 
 runtime/unhandled_exception_policy=1
-project/assembly_name="Lacie Engine"
+project/assembly_name="Lacie_Engine"
 unhandled_exception_policy=1
 
 [physics]
