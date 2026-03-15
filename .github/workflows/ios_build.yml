@@ -45,7 +45,6 @@ jobs:
 
       - name: Build Mono assemblies
         run: |
-          nuget restore "Lacie_Engine.sln"
           msbuild "Lacie_Engine_Project.csproj" /p:Configuration=Release
           
       - name: Export iOS project
