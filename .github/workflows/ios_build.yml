@@ -6,7 +6,7 @@ on:
 
 jobs:
   export-ios:
-    runs-on: macos-14-large
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
