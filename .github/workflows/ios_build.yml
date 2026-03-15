@@ -16,10 +16,11 @@ jobs:
           brew update
           brew install mono-mdk
 
-      - name: Install .NET 10 SDK
+      # Godot 3.5.3 doesn't know what to do with .NET 10. Use 6.0 for stability.
+      - name: Install .NET 6.0 SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '10.0.105'
+          dotnet-version: '6.0.x'
 
       - name: Install NuGet
         run: |
@@ -48,14 +49,22 @@ jobs:
           mkdir build
 
 
+      - name: Prepare Project
+        run: |
+          rm -rf .mono/
+          # This forces Godot to generate the glue and project metadata properly
+          godot --headless --build-solutions --quit 
+
       - name: Build Mono assemblies
         run: |
+          dotnet restore "Lacie_Engine.csproj"
           dotnet build "Lacie_Engine.csproj" /p:Configuration=Release
           
       - name: Export iOS project
-        run: godot --export "iOS" build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj
-        env:
-          DISPLAY: :99.0
+        run: |
+          mkdir -p build
+          # We use --no-window for headless export in Godot 3
+          godot --no-window --export "iOS" build/Lacie_Engine.xcodeproj
 
       - name: Build IPA
         run: |
