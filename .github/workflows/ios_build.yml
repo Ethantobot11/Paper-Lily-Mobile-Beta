@@ -53,14 +53,14 @@ jobs:
           dotnet build "Lacie_Engine_Project.csproj" /p:Configuration=Release
           
       - name: Export iOS project
-        run: godot --export "iOS" build/Lacie Engine-1.6-v1.5.1-release.xcodeproj
+        run: godot --export "iOS" build/Lacie/ Engine-1.6-v1.5.1-release.xcodeproj
         env:
           DISPLAY: :99.0
 
       - name: Build IPA
         run: |
-          xcodebuild -project "build/Lacie Engine-1.6-v1.5.1-release.xcodeproj" \
-          -scheme "Lacie Engine-1.6-v1.5.1-release" \
+          xcodebuild -project "build/Lacie/ Engine-1.6-v1.5.1-release.xcodeproj" \
+          -scheme "Lacie/ Engine-1.6-v1.5.1-release" \
           -configuration Release \
           -destination 'generic/platform=iOS' \
           -archivePath build/Lacie_Engine.xcarchive \
@@ -75,4 +75,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Paper-Lily
-          path: build/Lacie Engine-1.6-v1.5.1-release.ipa
+          path: build/Lacie/ Engine-1.6-v1.5.1-release.ipa
