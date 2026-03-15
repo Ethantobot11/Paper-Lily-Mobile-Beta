@@ -16,6 +16,11 @@ jobs:
           brew update
           brew install mono
 
+      - name: Install Mono
+        run: |
+          brew update
+          brew install nuget
+
       - name: Download Godot
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
@@ -36,6 +41,13 @@ jobs:
         run: |
           rm -rf build
           mkdir build
+
+
+      - name: Build Mono assemblies
+        run: |
+          cd build/Paper_Lily
+          nuget restore "Lacie Engine.sln"
+          msbuild "Lacie Engine.sln" /p:Configuration=Release
           
       - name: Export iOS project
         run: godot --export "iOS" build/Paper_Lily.xcodeproj
