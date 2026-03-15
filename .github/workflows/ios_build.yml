@@ -43,8 +43,7 @@ jobs:
           mkdir build
           
       - name: Export iOS project
-        run: |
-             /Applications/Godot_mono.app/Contents/Godot --no-window --path . --export "iOS" build/ios/ios
+        run: godot --export "iOS" build/your_project_name.xcodeproj
         env:
           DISPLAY: :99.0
 
