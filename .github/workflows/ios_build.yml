@@ -16,6 +16,11 @@ jobs:
           brew update
           brew install mono
 
+      - name: Install NuGet
+        run: |
+          brew update
+          brew install nuget
+
       - name: Restore NuGet
         run: nuget restore
 
