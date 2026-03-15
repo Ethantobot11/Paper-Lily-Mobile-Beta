@@ -21,10 +21,6 @@ jobs:
         with:
           dotnet-version: '6.0.x'
 
-      - name: Install NuGet
-        run: |
-          brew install nuget
-
       - name: Download Godot 3.5.3 Mono
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
@@ -40,34 +36,38 @@ jobs:
           mv templates/* ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono/
           rm -rf templates Godot_v3.5.3-stable_mono_export_templates.tpz
 
-      - name: Create build directory
-        run: mkdir -p build
-
-      - name: Build Mono assemblies
+      - name: Build Mono Solution
         run: |
-          # 1. Clean old artifacts
+          # 1. Clear old artifacts
           rm -rf .mono/
-          rm -rf bin/
-          rm -rf obj/
           
-          # 2. Build Release DLLs
-          dotnet restore "Lacie_Engine.csproj"
-          dotnet build "Lacie_Engine.csproj" /p:Configuration=Release
-          
-          # 3. Create the specific temp directory Godot's iOS exporter looks for
+          # 2. Tell Godot to generate the Glue and build the solution itself.
+          # This is more reliable than raw 'dotnet build' for Godot 3.5
+          godot --no-window --build-solutions --quit
+
+          # 3. Ensure the export directory exists
           mkdir -p .mono/temp/bin/ExportRelease/
           
-          # 4. Copy assemblies so the exporter finds them
-          cp -r bin/Release/* .mono/temp/bin/ExportRelease/
+          # 4. Copy the compiled assemblies from the solution build
+          # Godot usually builds to .mono/temp/bin/Release or bin/Release
+          if [ -d "bin/Release" ]; then
+            cp -rv bin/Release/* .mono/temp/bin/ExportRelease/
+          elif [ -d ".mono/temp/bin/Release" ]; then
+            cp -rv .mono/temp/bin/Release/* .mono/temp/bin/ExportRelease/
+          fi
 
       - name: Export iOS project
         run: |
-          # Use --no-window for Godot 3.5 headless export
+          mkdir -p build
           godot --no-window --export "iOS" build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj
 
       - name: Build IPA
         run: |
-          # Note: This will fail if build/export_options.plist does not exist in your repo
+          if [ ! -d "build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj" ]; then
+            echo "Xcode project not found!"
+            exit 1
+          fi
+
           xcodebuild -project "build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj" \
           -scheme "Lacie_Engine-1.6-v1.5.1-release" \
           -configuration Release \
@@ -77,13 +77,17 @@ jobs:
           IPHONEOS_DEPLOYMENT_TARGET=12.0 \
           archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
+          # We use || true so the workflow finishes even if signing fails, 
+          # allowing you to see the xcodeproj output.
           xcodebuild -exportArchive \
           -archivePath build/Lacie_Engine.xcarchive \
           -exportPath build \
-          -exportOptionsPlist build/export_options.plist || echo "Exporting IPA failed. Check if export_options.plist exists."
+          -exportOptionsPlist export_options.plist || echo "Check if export_options.plist exists in repo root."
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Paper-Lily-iOS
-          path: build/*.ipa
+          path: |
+            build/*.ipa
+            build/*.xcodeproj
