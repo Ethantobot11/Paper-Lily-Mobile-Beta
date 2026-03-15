@@ -43,7 +43,7 @@ jobs:
           mkdir build
           
       - name: Export iOS project
-        run: godot --export "iOS" build/your_project_name.xcodeproj
+        run: godot --export "iOS" build/Paper_Lily.xcodeproj
         env:
           DISPLAY: :99.0
 
@@ -54,19 +54,19 @@ jobs:
 
       - name: Build IPA
         run: |
-          xcodebuild -project build/ios/ios.xcodeproj \
-            -scheme ios \
+          xcodebuild -project build/Paper_Lily.xcodeproj \
+            -scheme Paper_Lily \
             -configuration Release \
-            -archivePath build/ios.xcarchive \
+            -archivePath build/Paper_Lily.xcarchive \
             archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
           xcodebuild -exportArchive \
-            -archivePath build/ios.xcarchive \
+            -archivePath build/Paper_Lily.xcarchive \
             -exportPath build \
             -exportOptionsPlist build/export_options.plist
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ipa
-          path: build/*.ipa
+          name: Paper-Lily
+          path: build/Paper-Lily.ipa
