@@ -25,14 +25,10 @@ jobs:
 
       - name: Download Godot Export Templates
         run: |
-          mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-          cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
+          mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono
+          cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz
-          tar -xzf Godot_v3.5.3-stable_mono_export_templates.tpz -C ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-          cd templates
-          mv * ..
-          cd ..
-          ls
+          unzip Godot_v3.5.3-stable_mono_export_templates.tpz
 
       - name: Create build directory
         run: |
