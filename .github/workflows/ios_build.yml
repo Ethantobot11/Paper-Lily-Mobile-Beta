@@ -21,11 +21,6 @@ jobs:
           brew update
           brew install nuget
 
-      - name: NuGet restore
-        run: |
-          cd build/ios                            
-          nuget restore Lacie Engine.sln
-
       - name: Download Godot
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
@@ -33,12 +28,12 @@ jobs:
           sudo mv godot/Godot.app /Applications/Godot.app
           sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
 
-      - name: Download Godot Export Templates
+      - name: Install Godot export templates
         run: |
           mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
           cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable
-          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
-          tar -xzf Godot_v3.5.3-stable_export_templates.tpz
+          wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz
+          unzip Godot_v3.5.3-stable_mono_export_templates.tpz
           mv templates/* .
           rm -rf templates
 
@@ -52,6 +47,11 @@ jobs:
             godot --no-window --path . --export "iOS" build/ios/ios
         env:
           DISPLAY: :99.0
+
+      - name: NuGet restore
+        run: |
+          cd build/ios                            
+          nuget restore Lacie Engine.sln
 
       - name: Build IPA
         run: |
