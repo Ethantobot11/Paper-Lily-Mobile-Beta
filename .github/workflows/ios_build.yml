@@ -44,7 +44,7 @@ jobs:
           
       - name: Export iOS project
         run: |
-            godot --no-window --path . --export "iOS" build/ios/ios
+             /Applications/Godot_mono.app/Contents/Godot --no-window --path . --export "iOS" build/ios/ios
         env:
           DISPLAY: :99.0
 
