@@ -45,7 +45,6 @@ jobs:
 
       - name: Build Mono assemblies
         run: |
-          cd build/Paper_Lily
           nuget restore "Lacie Engine.sln"
           msbuild "Lacie Engine.sln" /p:Configuration=Release
           
@@ -53,11 +52,6 @@ jobs:
         run: godot --export "iOS" build/Paper_Lily.xcodeproj
         env:
           DISPLAY: :99.0
-
-      - name: NuGet restore
-        run: |
-          cd build/ios                            
-          nuget restore Lacie Engine.sln
 
       - name: Build IPA
         run: |
