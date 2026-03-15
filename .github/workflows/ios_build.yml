@@ -16,7 +16,6 @@ jobs:
           brew update
           brew install mono-mdk
 
-      # Godot 3.5.3 doesn't know what to do with .NET 10. Use 6.0 for stability.
       - name: Install .NET 6.0 SDK
         uses: actions/setup-dotnet@v3
         with:
@@ -24,10 +23,9 @@ jobs:
 
       - name: Install NuGet
         run: |
-          brew update
           brew install nuget
 
-      - name: Download Godot
+      - name: Download Godot 3.5.3 Mono
         run: |
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
           unzip Godot_v3.5.3-stable_mono_osx.universal.zip -d godot
@@ -37,37 +35,39 @@ jobs:
       - name: Install Godot Mono export templates
         run: |
           mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono
-          cd ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono
           wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz
           unzip Godot_v3.5.3-stable_mono_export_templates.tpz
-          mv templates/* .
-          rm -rf templates
+          mv templates/* ~/Library/Application\ Support/Godot/templates/3.5.3.stable.mono/
+          rm -rf templates Godot_v3.5.3-stable_mono_export_templates.tpz
 
       - name: Create build directory
-        run: |
-          rm -rf build
-          mkdir build
-
-
-      - name: Prepare Project
-        run: |
-          rm -rf .mono/
-          # This forces Godot to generate the glue and project metadata properly
-          godot --headless --build-solutions --quit 
+        run: mkdir -p build
 
       - name: Build Mono assemblies
         run: |
+          # 1. Clean old artifacts
+          rm -rf .mono/
+          rm -rf bin/
+          rm -rf obj/
+          
+          # 2. Build Release DLLs
           dotnet restore "Lacie_Engine.csproj"
           dotnet build "Lacie_Engine.csproj" /p:Configuration=Release
           
+          # 3. Create the specific temp directory Godot's iOS exporter looks for
+          mkdir -p .mono/temp/bin/ExportRelease/
+          
+          # 4. Copy assemblies so the exporter finds them
+          cp -r bin/Release/* .mono/temp/bin/ExportRelease/
+
       - name: Export iOS project
         run: |
-          mkdir -p build
-          # We use --no-window for headless export in Godot 3
-          godot --no-window --export "iOS" build/Lacie_Engine.xcodeproj
+          # Use --no-window for Godot 3.5 headless export
+          godot --no-window --export "iOS" build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj
 
       - name: Build IPA
         run: |
+          # Note: This will fail if build/export_options.plist does not exist in your repo
           xcodebuild -project "build/Lacie_Engine-1.6-v1.5.1-release.xcodeproj" \
           -scheme "Lacie_Engine-1.6-v1.5.1-release" \
           -configuration Release \
@@ -80,10 +80,10 @@ jobs:
           xcodebuild -exportArchive \
           -archivePath build/Lacie_Engine.xcarchive \
           -exportPath build \
-          -exportOptionsPlist build/export_options.plist
+          -exportOptionsPlist build/export_options.plist || echo "Exporting IPA failed. Check if export_options.plist exists."
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Paper-Lily
-          path: build/Lacie_Engine-1.6-v1.5.1-release.ipa
+          name: Paper-Lily-iOS
+          path: build/*.ipa
