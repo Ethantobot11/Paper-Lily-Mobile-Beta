@@ -21,8 +21,10 @@ jobs:
           brew update
           brew install nuget
 
-      - name: Restore NuGet
-        run: nuget restore
+      - name: NuGet restore
+        run: |
+          cd build/ios                            
+          nuget restore Lacie Engine.sln
 
       - name: Download Godot
         run: |
