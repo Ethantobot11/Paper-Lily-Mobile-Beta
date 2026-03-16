@@ -18,31 +18,35 @@ jobs:
         with:
           dotnet-version: '6.x'
 
-      # 1. Setup Godot Mono & Templates
       - name: Setup Godot Mono
         run: |
-          # Direct link to the macOS Mono version
+          # 1. Download Godot Mono
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip -O Godot.zip
           unzip -q -o Godot.zip
           
-          # Move the .app to a predictable location
-          # Note: In 3.5.3 Mono, the folder is usually "Godot_v3.5.3-stable_mono_osx.universal"
-          EXTRACTED_DIR=$(ls -d *mono_osx* | head -n 1)
-          mv "$EXTRACTED_DIR/Godot_mono.app" .
+          # 2. Find the .app folder (wherever it is) and move it to the workspace root
+          APP_PATH=$(find . -name "Godot_mono.app" -type d -maxdepth 3 | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: Could not find Godot_mono.app in the zip"
+            exit 1
+          fi
+          mv "$APP_PATH" ./Godot_mono.app
           
-          # Create a symbolic link so calling 'Godot' works in your PATH
+          # 3. Create a symlink to make the 'Godot' command available
           mkdir -p bin
           ln -s "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
           echo "$PWD/bin" >> $GITHUB_PATH
           
-          # Download Templates (Direct link)
+          # 4. Download and Setup Templates
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz -O Templates.tpz
+          mkdir -p /tmp/godot_templates
           unzip -q -o Templates.tpz -d /tmp/godot_templates
           
-          # Prepare the local template folder
-          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-          # The tpz contains a 'templates' folder inside
-          mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          # 5. Correct Template Placement
+          # Inside the .tpz, there is usually a folder named 'templates'
+          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          mkdir -p "$TEMPLATE_DIR"
+          cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
       # 2. Check Godot Path (Verification)
       - name: Verify Godot
