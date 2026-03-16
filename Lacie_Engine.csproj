@@ -4,6 +4,7 @@
     <EnableDynamicLoading>True</EnableDynamicLoading>
     <Nullable>enable</Nullable>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <DefineConstants Condition="'$(GodotTargetPlatform)' == 'iphone'">$(DefineConstants);IS_IOS_BUILD</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup>
