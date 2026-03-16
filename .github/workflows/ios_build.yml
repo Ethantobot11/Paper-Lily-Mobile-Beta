@@ -59,17 +59,15 @@ jobs:
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Solution
         run: |
-          # 1. Restore using the solution file
-          nuget restore Lacie_Engine.sln
+          # List files to verify names in the log
+          ls *.sln *.csproj
           
-          # 2. Build the solution file specifically for Release
-          msbuild Lacie_Engine.sln /p:Configuration=Release /p:Platform="Any CPU"
+          # Restore specifically for the solution
+          nuget restore "./Lacie_Engine.sln"
           
-          # 3. Build for Debug (if you actually need both)
-          msbuild Lacie_Engine.sln /p:Configuration=Debug /p:Platform="Any CPU"
-
-          echo "--- VERIFYING C# ASSEMBLIES ---"
-          find .mono/assemblies -name "*.dll" || echo "Assemblies missing!"
+          # Force MSBuild to use the solution file ONLY
+          # We use the full path to avoid any "guessing"
+          msbuild "./Lacie_Engine.sln" /p:Configuration=Release /p:Platform="Any CPU" /m
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
