@@ -22,17 +22,23 @@ jobs:
       - name: Install Mono
         run: |
           brew update
-          brew install mono
+          brew install mono-sdk
 
       - name: Install NuGet
         run: |
           brew update
           brew install nuget
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+      # This replaces 'brew install mono-sdk'
+      - name: Setup Mono
+        uses: mono/setup-mono@v1
         with:
-          dotnet-version: '6.0.428'
+          mono-version: '6.12.0' # The most stable version for Godot 3.x
+
+      - name: Verify Installation
+        run: |
+          mono --version
+          msbuild -version
 
       - name: Pin .NET Version
         run: |
@@ -57,15 +63,15 @@ jobs:
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
       # 3. Manually Compile C# Solution via MSBuild
-      - name: Build C# Solution
+      - name: Build C# Project
         run: |
-          # 1. Clean up any leftover artifacts from previous steps
+          # 1. Clean up
           rm -rf .mono/temp
           
-          # Use MSBuild to handle the restore instead of the nuget command
-          msbuild Lacie_Engine.csproj /t:Restore
+          # 2. Add Mono to the PATH explicitly for this step
+          export PATH="/Library/Frameworks/Mono.framework/Versions/Current/bin:$PATH"
           
-          # Then build as normal
+          # 3. Build using the full path to be 100% sure
           msbuild Lacie_Engine.csproj /p:Configuration=Release /p:Platform="Any CPU"
 
       # 4. Export Raw Xcode Project
