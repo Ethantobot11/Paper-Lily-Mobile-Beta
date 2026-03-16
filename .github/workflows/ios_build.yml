@@ -21,21 +21,27 @@ jobs:
       # 1. Setup Godot Mono & Templates
       - name: Setup Godot Mono
         run: |
-          # Use --content-disposition to handle the redirect filenames correctly
-          wget -nv --content-disposition "https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_osx.universal.zip&platform=macos.universal" -O Godot.zip
+          # Direct link to the macOS Mono version
+          wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip -O Godot.zip
           unzip -q -o Godot.zip
           
-          # Find the extracted folder (it usually has 'mono_osx' in the name)
+          # Move the .app to a predictable location
+          # Note: In 3.5.3 Mono, the folder is usually "Godot_v3.5.3-stable_mono_osx.universal"
           EXTRACTED_DIR=$(ls -d *mono_osx* | head -n 1)
           mv "$EXTRACTED_DIR/Godot_mono.app" .
-          echo "$GITHUB_WORKSPACE/Godot_mono.app/Contents/MacOS" >> $GITHUB_PATH
           
-          # Download Templates
-          wget -nv --content-disposition "https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_export_templates.tpz&platform=templates" -O Templates.tpz
+          # Create a symbolic link so calling 'Godot' works in your PATH
+          mkdir -p bin
+          ln -s "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
+          echo "$PWD/bin" >> $GITHUB_PATH
+          
+          # Download Templates (Direct link)
+          wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz -O Templates.tpz
           unzip -q -o Templates.tpz -d /tmp/godot_templates
           
           # Prepare the local template folder
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          # The tpz contains a 'templates' folder inside
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
       # 2. Check Godot Path (Verification)
