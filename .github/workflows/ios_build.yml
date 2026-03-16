@@ -24,6 +24,15 @@ jobs:
           brew update
           brew install mono
 
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.428'
+
+      - name: Pin .NET Version
+        run: |
+          echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
+
       # 2. Setup Godot Mono & Mono Export Templates for macOS
       - name: Setup Godot Mono & Templates
         run: |
@@ -49,8 +58,8 @@ jobs:
           msbuild -t:restore
           
           # Compile the C# project externally
-          msbuild /p:Configuration=Release
-          msbuild /p:Configuration=Debug
+          dotnet build /p:Configuration=Release
+          dotnet build /p:Configuration=Debug
           
           # VERIFICATION: Print the compiled .dlls to the log
           echo "--- VERIFYING C# ASSEMBLIES ---"
