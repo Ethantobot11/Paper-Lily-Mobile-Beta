@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lacie_Engine", "Lacie_Engin
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+	Debug|AnyCPU = Debug|AnyCPU
+    Release|AnyCPU = Release|AnyCPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{FD048D33-3842-48A4-A4A5-07E13D183096}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
