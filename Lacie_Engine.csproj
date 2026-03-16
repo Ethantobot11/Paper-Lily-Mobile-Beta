@@ -1,4 +1,5 @@
 <Project Sdk="Godot.NET.Sdk/3.3.0">
+<Nullable>disable</Nullable>
   <PropertyGroup>
     <AssemblyName>Lacie_Engine</AssemblyName>
     <EnableDynamicLoading>True</EnableDynamicLoading>
