@@ -6,7 +6,7 @@ on:
 
 jobs:
   export-ios:
-    # IMPORTANT: You MUST use an Intel runner for Godot 3.5.x Mono AOT stability
+    # YOU MUST USE THE INTEL RUNNER FOR GODOT 3.x AOT
     runs-on: macos-26-intel 
     steps:
       - name: Checkout Repository
@@ -14,37 +14,29 @@ jobs:
         with:
           lfs: true
 
-      - name: Setup .NET SDKs
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          # Use 6.0 for Godot tools and 3.1 for your specific project reqs
-          dotnet-version: |
-            6.0.x
-            3.1.x
+          # Install 6.0 (which includes the tools Godot 3.5 needs)
+          dotnet-version: '6.0.x'
 
-      - name: Pin .NET Version
+      - name: Pin .NET Version (Critical)
         run: |
-          # This forces the runner to stop using .NET 10 and use 6.0 instead
-          echo '{"sdk": {"version": "6.0.x", "rollForward": "latestMinor"}}' > global.json
-            
+          # This forces the 'dotnet' command to use 6.0 instead of 10.0
+          echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
+          dotnet --version # This should now output 6.0.x
+
       - name: Setup Godot Mono
         run: |
-          # Download Godot Mono
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip -O Godot.zip
           unzip -q -o Godot.zip
-          
-          # Find and move the app to a stable location
           APP_PATH=$(find . -name "Godot_mono.app" -type d -not -path "./Godot_mono.app" | head -n 1)
-          if [ -n "$APP_PATH" ]; then
-            mv "$APP_PATH" ./Godot_mono.app
-          fi
-          
-          # Link the executable
+          [ -n "$APP_PATH" ] && mv "$APP_PATH" ./Godot_mono.app
           mkdir -p bin
           ln -sf "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
           echo "$PWD/bin" >> $GITHUB_PATH
           
-          # Setup Templates
+          # Templates
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz -O Templates.tpz
           mkdir -p /tmp/godot_templates
           unzip -q -o Templates.tpz -d /tmp/godot_templates
@@ -52,21 +44,22 @@ jobs:
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
-      - name: Restore and Build
+      - name: Build .NET Solution
         run: |
-          # Use '--path' if your sln is not in the root
+          # Now that we are pinned to 6.0, this will work correctly
           dotnet restore Lacie_Engine.sln
           dotnet build Lacie_Engine.sln --configuration Release
-          
+
       - name: Export Godot Project
         run: |
           mkdir -p build/ios
-          # We add the --no-window flag and force the build
+          # Use --no-window. If this fails, check that your preset in Godot is exactly named "iOS"
           Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
       - name: Compile Xcode Project (Unsigned)
         run: |
           cd build/ios
+          # Added a legacy linker flag often needed for Xcode 17+ (2026 standard)
           xcodebuild build \
             -project Paper-Lily.xcodeproj \
             -scheme "Paper-Lily" \
@@ -75,13 +68,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            OTHER_LDFLAGS="-Wl,-ld64"
 
       - name: Package IPA for TrollStore
         run: |
           cd build/ios
           mkdir -p Payload
-          # Move the .app folder into Payload
           cp -r build/Release-iphoneos/Paper-Lily.app Payload/
           zip -r Paper-Lily-Unsigned.ipa Payload
           
