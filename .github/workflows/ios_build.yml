@@ -63,7 +63,7 @@ jobs:
           rm -rf .mono/temp
           
           # 2. Restore specifically using the filename
-          nuget restore Lacie_Engine.sln
+          nuget restore Lacie_Engine.csproj
           
           # Target the PROJECT file directly. 
           # MSBuild won't complain about "too many files" if you point at the .csproj
