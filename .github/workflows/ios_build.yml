@@ -52,10 +52,6 @@ jobs:
           # Now it will find the .sln because we are inside the right folder
           dotnet restore Lacie_Engine.sln
           dotnet build Lacie_Engine.sln --configuration Release
-          
-          # Move the DLL to where the Godot AOT compiler expects it
-          mkdir -p .mono/assemblies/Release
-          cp bin/Release/Lacie_Engine.dll .mono/assemblies/Release/
 
       - name: Verify Files
         # This step is just to prove to the logs where the files are
