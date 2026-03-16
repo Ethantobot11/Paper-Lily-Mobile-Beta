@@ -1,0 +1,73 @@
+name: "Export iOS (TrollStore)"
+on: 
+  workflow_dispatch:
+
+jobs:
+  export-ios:
+    runs-on: macos-26-intel
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.428'
+
+      - name: Pin .NET Version
+        run: |
+          echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
+
+      - name: Download Godot Mono
+        run: |
+          curl -L -o godot_mono.zip https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip
+          unzip godot_mono.zip
+          mv Godot_mono.app/Contents/MacOS/Godot .
+          chmod +x Godot
+
+      - name: Build .NET Project
+        run: |
+          # 1. Build the specific project to bypass the .sln path issues
+          dotnet build Lacie_Engine.csproj --configuration Release -p:GodotTargetPlatform=iphone -o ./out
+
+          # 2. Setup the .mono folder Godot expects
+          mkdir -p .mono/assemblies/Release
+          
+          # 3. Copy your game DLLs
+          cp -v ./out/*.dll .mono/assemblies/Release/
+
+          # 4. FIX: Inject Godot's core API DLLs so the AOT compiler doesn't fail
+          # These are usually in the Godot App bundle
+          API_PATH="Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
+          cp -v "$API_PATH"/GodotSharp.dll .mono/assemblies/Release/
+          cp -v "$API_PATH"/GodotSharpEditor.dll .mono/assemblies/Release/
+
+      - name: Export Godot Project
+        run: |
+          # Disable 'export_build' in the config so Godot doesn't try to re-run the broken .sln build
+          sed -i '' 's/dotnet\/run_export_build=true/dotnet\/run_export_build=false/g' export_presets.cfg
+          
+          mkdir -p build/ios
+          ./Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
+
+      - name: Build Xcode Project (Unsigned)
+        run: |
+          cd build/ios
+          xcodebuild build \
+            -project Paper-Lily.xcodeproj \
+            -scheme "Paper-Lily" \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            OTHER_LDFLAGS="-Wl,-ld64"
+
+      - name: Upload Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Paper-Lily-iOS
+          path: build/ios/build/Release-iphoneos/
