@@ -62,12 +62,11 @@ jobs:
           # 1. Clean up any leftover artifacts from previous steps
           rm -rf .mono/temp
           
-          # 2. Restore specifically using the filename
-          nuget restore Lacie_Engine.csproj
+          # Use MSBuild to handle the restore instead of the nuget command
+          msbuild Lacie_Engine.csproj /t:Restore
           
-          # Target the PROJECT file directly. 
-          # MSBuild won't complain about "too many files" if you point at the .csproj
-          msbuild "./Lacie_Engine.csproj" /t:Build /p:Configuration=Release /p:Platform="Any CPU"
+          # Then build as normal
+          msbuild Lacie_Engine.csproj /p:Configuration=Release /p:Platform="Any CPU"
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
