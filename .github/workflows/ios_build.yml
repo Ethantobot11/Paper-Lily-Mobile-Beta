@@ -54,20 +54,28 @@ jobs:
           find . -name "*.cs" -not -path "*/Steam/*" -exec sed -i '' 's/SteamAchievementManager/\/\/SteamAchievementManager/g' {} +
           find . -name "*.cs" -not -path "*/Steam/*" -exec sed -i '' 's/SteamPlatformInitializer/\/\/SteamPlatformInitializer/g' {} +
 
-      - name: Build .NET Project for iOS
+      - name: Build .NET Project and Prep AOT
         run: |
-          # Detect the csproj
-          PROJ_PATH=$(find . -name "*.csproj" | head -n 1)
-          
-          # Build specifically for iOS to trigger the 'Condition' in your csproj
-          # This avoids the Steamworks architecture mismatch
-          dotnet build "$PROJ_PATH" --configuration Release -p:GodotTargetPlatform=iphone -o ./out
+          # 1. Build your project (the part that worked!)
+          dotnet build Lacie_Engine.csproj --configuration Release -p:GodotTargetPlatform=iphone -o ./out
 
-          # Create the folder Godot needs for export
+          # 2. Create the target folder
           mkdir -p .mono/assemblies/Release
-          
-          # Copy everything to the release folder
+
+          # 3. Copy your game DLLs
           cp -v ./out/*.dll .mono/assemblies/Release/
+
+          # 4. THE MISSING PIECE: Copy Godot's internal C# glue
+          # We extract these from the Godot_mono.app you downloaded
+          # The path might vary slightly, but for 3.5.3 it's usually here:
+          GODOT_RESOURCE_DIR="Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
+          
+          if [ -d "$GODOT_RESOURCE_DIR" ]; then
+            echo "Copying GodotSharp glue..."
+            cp -v "$GODOT_RESOURCE_DIR"/*.dll .mono/assemblies/Release/
+          else
+            echo "Searching for GodotSharp.dll..."
+            find Godot_mono.app -name "GodotSharp.dll" -exec cp -v {} .mono/assemblies/Release/ \;
 
       - name: Export Godot Project
         run: |
