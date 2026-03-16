@@ -29,16 +29,25 @@ jobs:
           brew update
           brew install nuget
 
-      - name: Link Pre-installed Mono
+      - name: Link Pre-installed Mono & MSBuild
         run: |
-          # The path where GitHub keeps Mono on macOS runners
-          MONO_PATH="/Library/Frameworks/Mono.framework/Versions/Current/bin"
-          echo "$MONO_PATH" >> $GITHUB_PATH
+          # Define the Mono bin path
+          MONO_BIN="/Library/Frameworks/Mono.framework/Versions/Current/bin"
           
-          # Force the shell to see it immediately for verification
-          export PATH="$MONO_PATH:$PATH"
+          # Add it to the path
+          echo "$MONO_BIN" >> $GITHUB_PATH
+          
+          # Create a symbolic link for msbuild if it's missing from the standard bin
+          # This points to the actual MSBuild binary location in Mono
+          if [ ! -f "$MONO_BIN/msbuild" ]; then
+            sudo ln -s /Library/Frameworks/Mono.framework/Versions/Current/lib/mono/msbuild/15.0/bin/MSBuild.dll $MONO_BIN/msbuild
+          fi
+
+          # Verify
+          export PATH="$MONO_BIN:$PATH"
           mono --version
-          msbuild -version
+          # Try calling it directly via mono if the alias fails
+          mono $MONO_BIN/msbuild.exe -version || msbuild -version
 
       - name: Pin .NET Version
         run: |
@@ -65,14 +74,8 @@ jobs:
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
         run: |
-          # 1. Clean up
-          rm -rf .mono/temp
-          
-          # 2. Add Mono to the PATH explicitly for this step
-          export PATH="/Library/Frameworks/Mono.framework/Versions/Current/bin:$PATH"
-          
-          # 3. Build using the full path to be 100% sure
-          msbuild Lacie_Engine.csproj /p:Configuration=Release /p:Platform="Any CPU"
+          # Run the MSBuild executable directly using mono
+          mono /Library/Frameworks/Mono.framework/Versions/Current/lib/mono/msbuild/15.0/bin/MSBuild.dll Lacie_Engine.csproj /p:Configuration=Release /p:Platform="Any CPU"
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
