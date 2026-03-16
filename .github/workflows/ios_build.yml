@@ -50,8 +50,8 @@ jobs:
       - name: Build .NET Solution
         run: |
           # Now it will find the .sln because we are inside the right folder
-          dotnet restore Lacie_Engine.sln
-          dotnet build Lacie_Engine.sln --configuration Release
+          dotnet restore Lacie_Engine.csproj
+          dotnet build Lacie_Engine.csproj --configuration Release
 
       - name: Verify Files
         # This step is just to prove to the logs where the files are
