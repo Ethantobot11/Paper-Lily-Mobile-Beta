@@ -24,17 +24,21 @@ jobs:
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip -O Godot.zip
           unzip -q -o Godot.zip
           
-          # 2. Find the .app folder (wherever it is) and move it to the workspace root
-          APP_PATH=$(find . -name "Godot_mono.app" -type d -maxdepth 3 | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "Error: Could not find Godot_mono.app in the zip"
-            exit 1
-          fi
-          mv "$APP_PATH" ./Godot_mono.app
+          # 2. Find the .app folder safely
+          # We search for it, but excluding the current directory to avoid moving a folder into itself
+          APP_PATH=$(find . -name "Godot_mono.app" -type d -not -path "./Godot_mono.app" | head -n 1)
           
-          # 3. Create a symlink to make the 'Godot' command available
+          # Only move if it's buried in a subdirectory
+          if [ -n "$APP_PATH" ]; then
+            echo "Moving Godot from $APP_PATH to root..."
+            mv "$APP_PATH" ./Godot_mono.app_temp
+            rm -rf ./Godot_mono.app
+            mv ./Godot_mono.app_temp ./Godot_mono.app
+          fi
+          
+          # 3. Create a symlink for the 'Godot' command
           mkdir -p bin
-          ln -s "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
+          ln -sf "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
           echo "$PWD/bin" >> $GITHUB_PATH
           
           # 4. Download and Setup Templates
@@ -43,7 +47,6 @@ jobs:
           unzip -q -o Templates.tpz -d /tmp/godot_templates
           
           # 5. Correct Template Placement
-          # Inside the .tpz, there is usually a folder named 'templates'
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
