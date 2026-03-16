@@ -47,6 +47,13 @@ jobs:
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
+      - name: Auto-patch Steam calls
+        run: |
+          # This finds all .cs files and comments out lines that mention Steam managers
+          # ONLY for the duration of the CI build
+          find . -name "*.cs" -not -path "*/Steam/*" -exec sed -i '' 's/SteamAchievementManager/\/\/SteamAchievementManager/g' {} +
+          find . -name "*.cs" -not -path "*/Steam/*" -exec sed -i '' 's/SteamPlatformInitializer/\/\/SteamPlatformInitializer/g' {} +
+
       - name: Build .NET Project for iOS
         run: |
           # Detect the csproj
