@@ -79,6 +79,14 @@ jobs:
           echo "--- VERIFYING XCODE PROJECT ---"
           ls -la build/ios/
 
+      - name: Upload Corrupted Project for Inspection
+        if: failure()  # This ensures it only runs if the previous step failed
+        uses: actions/upload-artifact@v4
+        with:
+          name: broken-ios-project
+          path: build/ios/game.xcodeproj/project.pbxproj
+          retention-days: 1
+
       # 5. Upload Artifact
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
