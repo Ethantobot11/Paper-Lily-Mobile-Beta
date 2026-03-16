@@ -47,24 +47,20 @@ jobs:
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
-      - name: Build .NET Project
+      - name: Build .NET Project for iOS
         run: |
-          # 1. Detect where the project file is
+          # Detect the csproj
           PROJ_PATH=$(find . -name "*.csproj" | head -n 1)
-          PROJ_DIR=$(dirname "$PROJ_PATH")
-          echo "Building project in: $PROJ_DIR"
           
-          # 2. Build the specific csproj
-          # We output to a local 'out' folder to keep it clean
-          dotnet build "$PROJ_PATH" --configuration Release -o "$PROJ_DIR/out"
+          # Build specifically for iOS to trigger the 'Condition' in your csproj
+          # This avoids the Steamworks architecture mismatch
+          dotnet build "$PROJ_PATH" --configuration Release -p:GodotTargetPlatform=iphone -o ./out
 
-          # 3. Create the Release folder for Godot
-          # Godot 3.x AOT looks here: <project_root>/.mono/assemblies/Release/
-          mkdir -p "$PROJ_DIR/.mono/assemblies/Release"
-
-          # 4. Move the compiled DLL and its dependencies
-          # We use -n (no-clobber) to avoid overwriting GodotSharp.dll if it's already there
-          cp -v "$PROJ_DIR/out/"*.dll "$PROJ_DIR/.mono/assemblies/Release/"
+          # Create the folder Godot needs for export
+          mkdir -p .mono/assemblies/Release
+          
+          # Copy everything to the release folder
+          cp -v ./out/*.dll .mono/assemblies/Release/
 
       - name: Export Godot Project
         run: |
