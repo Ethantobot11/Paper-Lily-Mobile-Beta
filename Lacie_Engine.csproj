@@ -11,7 +11,7 @@
   </PropertyGroup>
   <PropertyGroup />
   <ItemGroup />
-  ItemGroup>
+  <ItemGroup>
   <Reference Include="Karambolo.PO">
     <HintPath>_mono_referenced_assemblies\Karambolo.PO.dll</HintPath>
   </Reference>
