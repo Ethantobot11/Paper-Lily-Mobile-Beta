@@ -22,7 +22,7 @@ jobs:
       - name: Install Mono
         run: |
           brew update
-          brew install mono-sdk
+          brew install mono
 
       - name: Install NuGet
         run: |
