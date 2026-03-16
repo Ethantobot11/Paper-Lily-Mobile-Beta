@@ -15,7 +15,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
           fetch-depth: 0
 
       # 1. Install Mono on macOS (Required for Godot C#)
