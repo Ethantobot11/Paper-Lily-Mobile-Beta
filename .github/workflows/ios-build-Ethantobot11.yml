@@ -29,27 +29,25 @@ jobs:
 
       - name: Build .NET Project
         run: |
-          # 1. Build the specific project to bypass the .sln path issues
+          # 1. Build the project manually (skipping Steam via our .csproj logic)
           dotnet build Lacie_Engine.csproj --configuration Release -p:GodotTargetPlatform=iphone -o ./out
 
-          # 2. Setup the .mono folder Godot expects
+          # 2. Prep the .mono folder for Godot's AOT compiler
           mkdir -p .mono/assemblies/Release
           
-          # 3. Copy your game DLLs
+          # 3. Copy Game DLLs
           cp -v ./out/*.dll .mono/assemblies/Release/
 
-          # 4. FIX: Inject Godot's core API DLLs so the AOT compiler doesn't fail
-          # These are usually in the Godot App bundle
+          # 4. Inject Godot API DLLs (The "Load Hook" fix)
           API_PATH="Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
           cp -v "$API_PATH"/GodotSharp.dll .mono/assemblies/Release/
           cp -v "$API_PATH"/GodotSharpEditor.dll .mono/assemblies/Release/
 
       - name: Export Godot Project
         run: |
-          # Disable 'export_build' in the config so Godot doesn't try to re-run the broken .sln build
-          sed -i '' 's/dotnet\/run_export_build=true/dotnet\/run_export_build=false/g' export_presets.cfg
-          
           mkdir -p build/ios
+          # We use the 'Godot' binary we unzipped earlier
+          # This will now see 'run_export_build=false' and use our manual DLLs
           ./Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
       - name: Build Xcode Project (Unsigned)
