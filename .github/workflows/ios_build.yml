@@ -47,37 +47,32 @@ jobs:
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
-      - name: Build .NET Solution
+      - name: Build .NET Project
         run: |
-          # Now it will find the .sln because we are inside the right folder
-          dotnet restore Lacie_Engine.csproj
-          dotnet build Lacie_Engine.csproj --configuration Release
+          # 1. Detect where the project file is
+          PROJ_PATH=$(find . -name "*.csproj" | head -n 1)
+          PROJ_DIR=$(dirname "$PROJ_PATH")
+          echo "Building project in: $PROJ_DIR"
+          
+          # 2. Build the specific csproj
+          # We output to a local 'out' folder to keep it clean
+          dotnet build "$PROJ_PATH" --configuration Release -o "$PROJ_DIR/out"
 
-      - name: Verify Files
-        # This step is just to prove to the logs where the files are
-        run: |
-          ls -R .
+          # 3. Create the Release folder for Godot
+          # Godot 3.x AOT looks here: <project_root>/.mono/assemblies/Release/
+          mkdir -p "$PROJ_DIR/.mono/assemblies/Release"
+
+          # 4. Move the compiled DLL and its dependencies
+          # We use -n (no-clobber) to avoid overwriting GodotSharp.dll if it's already there
+          cp -v "$PROJ_DIR/out/"*.dll "$PROJ_DIR/.mono/assemblies/Release/"
 
       - name: Export Godot Project
         run: |
-          # 1. Automatic Folder Detection
-          # This finds the folder containing project.godot, no matter how deep it is
           PROJECT_ROOT=$(find . -name "project.godot" -exec dirname {} \;)
-          echo "Found project at: $PROJECT_ROOT"
           cd "$PROJECT_ROOT"
-
-          # 2. Verify the DLL exists where Godot needs it
-          if [ -f ".mono/assemblies/Release/Lacie_Engine.dll" ]; then
-            echo "✅ Found pre-compiled DLL in .mono folder"
-          else
-            echo "❌ ERROR: DLL not found in .mono/assemblies/Release/"
-            echo "Checking current directory structure:"
-            ls -R .mono
-            exit 1
-          fi
-
-          # 3. Run Export
+          
           mkdir -p build/ios
+          # Godot will now see the DLLs in the .mono folder we just populated
           Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
           
       - name: Compile Xcode Project (Unsigned)
