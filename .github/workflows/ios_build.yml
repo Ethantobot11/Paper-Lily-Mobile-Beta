@@ -76,6 +76,7 @@ jobs:
           else
             echo "Searching for GodotSharp.dll..."
             find Godot_mono.app -name "GodotSharp.dll" -exec cp -v {} .mono/assemblies/Release/ \;
+          fi
 
       - name: Export Godot Project
         run: |
