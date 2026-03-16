@@ -29,25 +29,11 @@ jobs:
           brew update
           brew install nuget
 
-      - name: Link Pre-installed Mono & MSBuild
-        run: |
-          # Define the Mono bin path
-          MONO_BIN="/Library/Frameworks/Mono.framework/Versions/Current/bin"
-          
-          # Add it to the path
-          echo "$MONO_BIN" >> $GITHUB_PATH
-          
-          # Create a symbolic link for msbuild if it's missing from the standard bin
-          # This points to the actual MSBuild binary location in Mono
-          if [ ! -f "$MONO_BIN/msbuild" ]; then
-            sudo ln -s /Library/Frameworks/Mono.framework/Versions/Current/lib/mono/msbuild/15.0/bin/MSBuild.dll $MONO_BIN/msbuild
-          fi
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
 
-          # Verify
-          export PATH="$MONO_BIN:$PATH"
-          mono --version
-          # Try calling it directly via mono if the alias fails
-          mono $MONO_BIN/msbuild.exe -version || msbuild -version
+        with:
+          dotnet-version: '6.0.428'
 
       - name: Pin .NET Version
         run: |
@@ -75,7 +61,7 @@ jobs:
       - name: Build C# Project
         run: |
           # Run the MSBuild executable directly using mono
-          mono /Library/Frameworks/Mono.framework/Versions/Current/lib/mono/msbuild/15.0/bin/MSBuild.dll Lacie_Engine.csproj /p:Configuration=Release /p:Platform="Any CPU"
+          donet build Lacie_Engine.csproj /p:Configuration=Release /p:Platform="Any CPU"
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
