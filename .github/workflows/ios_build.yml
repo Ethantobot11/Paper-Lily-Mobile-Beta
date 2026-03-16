@@ -65,10 +65,9 @@ jobs:
           # 2. Restore specifically using the filename
           nuget restore Lacie_Engine.sln
           
-          # 3. Build using the SOLUTION file but with explicit targets
-          # Using "./" and quoting the file ensures the shell passes exactly 1 argument.
-          # We add -p:Platform="Any CPU" to match your .sln exactly.
-          msbuild "./Lacie_Engine.sln" /t:Build /p:Configuration=Release /p:Platform="Any CPU" /maxCpuCount
+          # Target the PROJECT file directly. 
+          # MSBuild won't complain about "too many files" if you point at the .csproj
+          msbuild "./Lacie_Engine.csproj" /t:Build /p:Configuration=Release /p:Platform="Any CPU"
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
