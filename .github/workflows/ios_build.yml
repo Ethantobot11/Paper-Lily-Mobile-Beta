@@ -55,7 +55,7 @@ jobs:
       - name: Build C# Solution
         run: |
           # Use MSBuild's built-in package restore instead of the standalone nuget CLI
-          msbuild -t:restore
+          dotnet -t:restore
           
           # Compile the C# project externally
           dotnet build /p:Configuration=Release
