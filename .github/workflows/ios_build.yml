@@ -42,20 +42,30 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      # 3. Pre-build C# assemblies (CRITICAL FOR MONO HEADLESS)
+      # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Solution
         run: |
-          # This forces Godot to compile the .sln and generate the Lacie_Engine.dll 
-          # before the exporter ever tries to look for it.
-          # The Dummy audio driver prevents the NSString macOS crash.
-          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --build-solutions
+          # Restore NuGet packages first
+          nuget restore
+          
+          # Compile the C# project externally using MSBuild. 
+          # This avoids the Catch-22 crash where Godot tries to load scripts before they compile.
+          msbuild /p:Configuration=Release
+          msbuild /p:Configuration=Debug
+          
+          # VERIFICATION: Print the compiled .dlls to the log
+          echo "--- VERIFYING C# ASSEMBLIES ---"
+          find .mono/assemblies -name "*.dll" || echo "Assemblies missing!"
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
+        env:
+          # Setting standard locale variables fixes the macOS 'NSString NULL cString' crash
+          LANG: en_US.UTF-8
+          LC_ALL: en_US.UTF-8
         run: |
           mkdir -p build/ios
           
-          # Added the Dummy audio driver here as well for stability
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game
           
           echo "--- VERIFYING XCODE PROJECT ---"
