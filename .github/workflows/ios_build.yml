@@ -45,11 +45,10 @@ jobs:
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Solution
         run: |
-          # Restore NuGet packages first
-          nuget restore
+          # Use MSBuild's built-in package restore instead of the standalone nuget CLI
+          msbuild -t:restore
           
-          # Compile the C# project externally using MSBuild. 
-          # This avoids the Catch-22 crash where Godot tries to load scripts before they compile.
+          # Compile the C# project externally
           msbuild /p:Configuration=Release
           msbuild /p:Configuration=Debug
           
