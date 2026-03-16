@@ -55,11 +55,19 @@ jobs:
       - name: Verify Godot
         run: Godot --version
 
-      # 2. Export Godot to Xcode Project
       - name: Export Godot Project
         run: |
+          # 1. Restore .NET dependencies and build the project solutions
+          # This ensures Lacie_Engine.dll and GodotSharp.dll are present
+          dotnet restore
+          dotnet build --configuration Release
+          
+          # 2. Create export directory
           mkdir -p build/ios
-          Godot --no-window --export "iOS" build/ios/Paper-Lily.xcodeproj
+          
+          # 3. Run the export
+          # We add --verbose to see exactly where it's looking if it fails again
+          Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
       # 3. Build Unsigned .app bundle
       - name: Compile Xcode Project (Unsigned)
