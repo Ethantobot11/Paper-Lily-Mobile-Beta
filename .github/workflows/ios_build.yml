@@ -6,7 +6,7 @@ on:
 
 jobs:
   export-ios:
-    # YOU MUST USE THE INTEL RUNNER FOR GODOT 3.x AOT
+    # 2026 CRITICAL: You MUST use the Intel runner for Godot 3.5.x AOT
     runs-on: macos-26-intel 
     steps:
       - name: Checkout Repository
@@ -17,14 +17,14 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          # Install 6.0 (which includes the tools Godot 3.5 needs)
-          dotnet-version: '6.0.x'
+          # Use 6.0.428 specifically as it's the most stable for Godot 3.5
+          dotnet-version: '6.0.428'
 
-      - name: Pin .NET Version (Critical)
+      - name: Pin .NET SDK Version
         run: |
-          # This forces the 'dotnet' command to use 6.0 instead of 10.0
+          # Create a global.json to force the runner to ignore .NET 10
           echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
-          dotnet --version # This should now output 6.0.x
+          dotnet --version # This should output 6.0.x now
 
       - name: Setup Godot Mono
         run: |
@@ -36,7 +36,7 @@ jobs:
           ln -sf "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
           echo "$PWD/bin" >> $GITHUB_PATH
           
-          # Templates
+          # Setup Templates
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz -O Templates.tpz
           mkdir -p /tmp/godot_templates
           unzip -q -o Templates.tpz -d /tmp/godot_templates
@@ -44,22 +44,23 @@ jobs:
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
-      - name: Build .NET Solution
+      - name: Clean & Build .NET Solution
         run: |
-          # Now that we are pinned to 6.0, this will work correctly
+          # Clean old build artifacts that might be corrupted by .NET 10
+          dotnet clean Lacie_Engine.sln
           dotnet restore Lacie_Engine.sln
           dotnet build Lacie_Engine.sln --configuration Release
 
       - name: Export Godot Project
         run: |
           mkdir -p build/ios
-          # Use --no-window. If this fails, check that your preset in Godot is exactly named "iOS"
+          # The --no-window flag is mandatory for headless CI
           Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
       - name: Compile Xcode Project (Unsigned)
         run: |
           cd build/ios
-          # Added a legacy linker flag often needed for Xcode 17+ (2026 standard)
+          # Use the legacy linker flag for Xcode 17+ (the 2026 default)
           xcodebuild build \
             -project Paper-Lily.xcodeproj \
             -scheme "Paper-Lily" \
