@@ -8,14 +8,12 @@ jobs:
   export-ios:
     # 2026 CRITICAL: You MUST use the Intel runner for Godot 3.5.x AOT
     runs-on: macos-26-intel
-    defaults:
-      run:
-        working-directory: ./Paper-Lily-Mobile-Beta  # Run everything inside the code folder
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           lfs: true
+          path: '.'  # This forces it to stay in the root workspace
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
