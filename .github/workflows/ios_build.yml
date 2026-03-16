@@ -1,6 +1,8 @@
 name: "Godot iOS Build (Unsigned)"
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  workflow_call:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -12,6 +14,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
 
       # 1. Install Mono on macOS (Required for Godot C#)
       - name: Install Mono
@@ -37,34 +42,25 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      # 3. Export Raw Xcode Project
+            # 3. Pre-build C# assemblies (CRITICAL FOR MONO HEADLESS)
+      - name: Build C# Solution
+        run: |
+          # This forces Godot to compile the .sln and generate the Lacie_Engine.dll 
+          # before the exporter ever tries to look for it.
+          # The Dummy audio driver prevents the NSString macOS crash.
+          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --build-solutions
+
+      # 4. Export Raw Xcode Project
       - name: Export Xcode Project
         run: |
           mkdir -p build/ios
           
-          # By not using the .ipa extension, we force Godot to just dump the Xcode project.
-          # We name it 'game' so we know exactly what the Xcode project and scheme will be named.
-          ./Godot_mono.app/Contents/MacOS/Godot --no-window --export "iOS" build/ios/game
+          # Added the Dummy audio driver here as well for stability
+          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game
           
           echo "--- VERIFYING XCODE PROJECT ---"
           ls -la build/ios/
 
-      # 4. Compile Unsigned iOS App
-      - name: Compile Unsigned IPA
-        run: |
-          cd build/ios
-          
-          # Run xcodebuild and explicitly turn off ALL Apple code signing requirements
-          xcodebuild -project game.xcodeproj -scheme game -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
-          
-          # Apple requires .ipa files to contain a folder named exactly "Payload"
-          mkdir -p Payload
-          
-          # Move the compiled .app payload into the folder
-          cp -R build/Release-iphoneos/*.app Payload/
-          
-          # Zip it up as an unsigned .ipa
-          zip -q -r game-unsigned.ipa Payload
 
       # 5. Upload Artifact
       - name: Upload Artifact
