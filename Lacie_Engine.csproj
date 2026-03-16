@@ -11,21 +11,15 @@
   </PropertyGroup>
   <PropertyGroup />
   <ItemGroup />
-  <ItemGroup>
-    <Reference Include="Karambolo.PO">
-      <HintPath>_mono_referenced_assemblies\Karambolo.PO.dll</HintPath>
-    </Reference>
-    <Reference Include="Steamworks.NET">
-      <HintPath>_mono_referenced_assemblies\Steamworks.NET.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>_mono_referenced_assemblies\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <!--The following references were not added to the project file because they are automatically added by the Godot SDK.-->
-    <!--
-<Reference Include="GodotSharp">
-  <HintPath>..\..\AppData\Roaming\Godot\app_userdata\Godot RE Tools\.tmp\Lacie Engine_mono_temp\.mono\assemblies\Release\GodotSharp.dll</HintPath>
-</Reference>
--->
-  </ItemGroup>
+  ItemGroup>
+  <Reference Include="Karambolo.PO">
+    <HintPath>_mono_referenced_assemblies\Karambolo.PO.dll</HintPath>
+  </Reference>
+  <Reference Include="Steamworks.NET" Condition="'$(GodotTargetPlatform)' != 'iphone'">
+    <HintPath>_mono_referenced_assemblies\Steamworks.NET.dll</HintPath>
+  </Reference>
+  <Reference Include="Newtonsoft.Json">
+    <HintPath>_mono_referenced_assemblies\Newtonsoft.Json.dll</HintPath>
+  </Reference>
+</ItemGroup>
 </Project>
