@@ -6,26 +6,28 @@ on:
 
 jobs:
   export-ios:
-    # 2026 CRITICAL: You MUST use the Intel runner for Godot 3.5.x AOT
     runs-on: macos-26-intel
+    # REMOVE THE 'defaults: run: working-directory' SECTION ENTIRELY
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           lfs: true
-          path: '.'  # This forces it to stay in the root workspace
+          # This forces the code into the root of the workspace
+          # so Lacie_Engine.sln is at /Users/runner/work/Paper-Lily-Mobile-Beta/Lacie_Engine.sln
+          path: '.' 
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          # Use 6.0.428 specifically as it's the most stable for Godot 3.5
           dotnet-version: '6.0.428'
 
-      - name: Pin .NET SDK Version
+      - name: Pin .NET Version
         run: |
-          # Create a global.json to force the runner to ignore .NET 10
+          # Now we are in the root, so this creates global.json in the right spot
           echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
-          dotnet --version # This should output 6.0.x now
+          dotnet --version
 
       - name: Setup Godot Mono
         run: |
@@ -47,21 +49,18 @@ jobs:
 
       - name: Build .NET Solution
         run: |
-          # Use absolute paths to ensure the SDK finds the files
-          dotnet restore "$GITHUB_WORKSPACE/Lacie_Engine.sln"
-          dotnet build "$GITHUB_WORKSPACE/Lacie_Engine.sln" \
-            --configuration Release \
-            -p:GodotTargetPlatform=iphone
+          # Now it will find the .sln because we are inside the right folder
+          dotnet restore Lacie_Engine.sln
+          dotnet build Lacie_Engine.sln --configuration Release
           
-          # Manually move assemblies to where Godot expects them for iOS AOT
-          mkdir -p "$GITHUB_WORKSPACE/.mono/assemblies/Release"
-          cp "$GITHUB_WORKSPACE/bin/Release/Lacie_Engine.dll" "$GITHUB_WORKSPACE/.mono/assemblies/Release/"
+          # Move the DLL to where the Godot AOT compiler expects it
+          mkdir -p .mono/assemblies/Release
+          cp bin/Release/Lacie_Engine.dll .mono/assemblies/Release/
 
       - name: Export Godot Project
         run: |
           mkdir -p build/ios
-          # We add --no-window and --verbose. 
-          # CRITICAL: We tell Godot NOT to build the solution again, as we just did it.
+          # Use the absolute path for Godot if needed, or rely on $PATH
           Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
       - name: Compile Xcode Project (Unsigned)
