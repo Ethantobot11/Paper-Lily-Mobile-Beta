@@ -24,6 +24,11 @@ jobs:
           brew update
           brew install mono
 
+      - name: Install NuGet
+        run: |
+          brew update
+          brew install nuget
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -54,16 +59,9 @@ jobs:
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Solution
         run: |
-          # Use MSBuild's built-in package restore instead of the standalone nuget CLI
-          dotnet restore
-          
-          # Compile the C# project externally
-          dotnet build /p:Configuration=Release
-          dotnet build /p:Configuration=Debug
-          
-          # VERIFICATION: Print the compiled .dlls to the log
-          echo "--- VERIFYING C# ASSEMBLIES ---"
-          find .mono/assemblies -name "*.dll" || echo "Assemblies missing!"
+          nuget restore
+          msbuild /p:Configuration=Release
+          msbuild /p:Configuration=Debug
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
