@@ -6,70 +6,62 @@ on:
 
 jobs:
   export-ios:
-    runs-on: macos-latest
+    # IMPORTANT: You MUST use an Intel runner for Godot 3.5.x Mono AOT stability
+    runs-on: macos-26-intel 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Setup .NET
+      - name: Setup .NET SDKs
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.x'
-
+          # Install both: 6.0 for Godot's internal tools, 3.1 for your project
+          dotnet-version: |
+            6.0.x
+            3.1.x
+            
       - name: Setup Godot Mono
         run: |
-          # 1. Download Godot Mono
+          # Download Godot Mono
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip -O Godot.zip
           unzip -q -o Godot.zip
           
-          # 2. Find the .app folder safely
-          # We search for it, but excluding the current directory to avoid moving a folder into itself
+          # Find and move the app to a stable location
           APP_PATH=$(find . -name "Godot_mono.app" -type d -not -path "./Godot_mono.app" | head -n 1)
-          
-          # Only move if it's buried in a subdirectory
           if [ -n "$APP_PATH" ]; then
-            echo "Moving Godot from $APP_PATH to root..."
-            mv "$APP_PATH" ./Godot_mono.app_temp
-            rm -rf ./Godot_mono.app
-            mv ./Godot_mono.app_temp ./Godot_mono.app
+            mv "$APP_PATH" ./Godot_mono.app
           fi
           
-          # 3. Create a symlink for the 'Godot' command
+          # Link the executable
           mkdir -p bin
           ln -sf "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
           echo "$PWD/bin" >> $GITHUB_PATH
           
-          # 4. Download and Setup Templates
+          # Setup Templates
           wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz -O Templates.tpz
           mkdir -p /tmp/godot_templates
           unzip -q -o Templates.tpz -d /tmp/godot_templates
-          
-          # 5. Correct Template Placement
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
-      # 2. Check Godot Path (Verification)
-      - name: Verify Godot
-        run: Godot --version
+      - name: Build .NET Solution
+        run: |
+          # Use the 3.1/6.0 environment to restore and build
+          dotnet restore Lacie_Engine.sln
+          # We build in Release to ensure the DLLs are ready for the AOT compiler
+          dotnet build Lacie_Engine.sln --configuration Release
 
       - name: Export Godot Project
         run: |
-          # 1. Restore .NET dependencies and build the project solutions
-          # This ensures Lacie_Engine.dll and GodotSharp.dll are present
-          dotnet restore
-          dotnet build --configuration Release
-          
-          # 2. Create export directory
           mkdir -p build/ios
-          
-          # 3. Run the export
-          # We add --verbose to see exactly where it's looking if it fails again
+          # Use --no-window. 
+          # Note: If export still fails here, ensure the preset name "iOS" 
+          # matches exactly what is in your export_presets.cfg
           Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
-      # 3. Build Unsigned .app bundle
       - name: Compile Xcode Project (Unsigned)
         run: |
           cd build/ios
@@ -83,18 +75,15 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
 
-      # 4. Manually Package into IPA
-      # TrollStore accepts .ipa files which are just 'Payload/YourApp.app' zipped up.
       - name: Package IPA for TrollStore
         run: |
           cd build/ios
           mkdir -p Payload
-          # Find the compiled .app file and move it into Payload
+          # Move the .app folder into Payload
           cp -r build/Release-iphoneos/Paper-Lily.app Payload/
           zip -r Paper-Lily-Unsigned.ipa Payload
           
-      # 5. Upload Artifact
-      - name: Upload IPA
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Paper-Lily-TrollStore
