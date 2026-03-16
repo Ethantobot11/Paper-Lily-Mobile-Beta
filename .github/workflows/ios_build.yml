@@ -44,17 +44,23 @@ jobs:
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
-      - name: Clean & Build .NET Solution
+      - name: Build .NET Solution
         run: |
-          # Clean old build artifacts that might be corrupted by .NET 10
-          dotnet clean Lacie_Engine.sln
-          dotnet restore Lacie_Engine.sln
-          dotnet build Lacie_Engine.sln --configuration Release
+          # Use absolute paths to ensure the SDK finds the files
+          dotnet restore "$GITHUB_WORKSPACE/Lacie_Engine.sln"
+          dotnet build "$GITHUB_WORKSPACE/Lacie_Engine.sln" \
+            --configuration Release \
+            -p:GodotTargetPlatform=iphone
+          
+          # Manually move assemblies to where Godot expects them for iOS AOT
+          mkdir -p "$GITHUB_WORKSPACE/.mono/assemblies/Release"
+          cp "$GITHUB_WORKSPACE/bin/Release/Lacie_Engine.dll" "$GITHUB_WORKSPACE/.mono/assemblies/Release/"
 
       - name: Export Godot Project
         run: |
           mkdir -p build/ios
-          # The --no-window flag is mandatory for headless CI
+          # We add --no-window and --verbose. 
+          # CRITICAL: We tell Godot NOT to build the solution again, as we just did it.
           Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
       - name: Compile Xcode Project (Unsigned)
