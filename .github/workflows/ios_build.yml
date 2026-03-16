@@ -59,15 +59,13 @@ jobs:
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Solution
         run: |
-          # List files to verify names in the log
-          ls *.sln *.csproj
+          # Use the solution file with the explicit -path or by passing it correctly
+          # On modern MSBuild, we use the filename directly but ensure no other flags interfere
           
-          # Restore specifically for the solution
-          nuget restore "./Lacie_Engine.sln"
+          nuget restore Lacie_Engine.sln
           
-          # Force MSBuild to use the solution file ONLY
-          # We use the full path to avoid any "guessing"
-          msbuild "./Lacie_Engine.sln" /p:Configuration=Release /p:Platform="Any CPU" /m
+          # Option A: The most compatible way for macOS MSBuild
+          msbuild Lacie_Engine.sln -p:Configuration=Release -p:Platform="Any CPU" -maxCpuCount
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
