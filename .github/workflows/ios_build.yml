@@ -60,8 +60,8 @@ jobs:
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
         run: |
-          # Run the MSBuild executable directly using mono
-          donet build Lacie_Engine.csproj /p:Configuration=Release /p:Platform="Any CPU"
+          # Use dotnet but force it to build the project file specifically
+          dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
