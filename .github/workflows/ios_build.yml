@@ -57,12 +57,33 @@ jobs:
           mkdir -p .mono/assemblies/Release
           cp bin/Release/Lacie_Engine.dll .mono/assemblies/Release/
 
+      - name: Verify Files
+        # This step is just to prove to the logs where the files are
+        run: |
+          ls -R .
+
       - name: Export Godot Project
         run: |
-          mkdir -p build/ios
-          # Use the absolute path for Godot if needed, or rely on $PATH
-          Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
+          # 1. Automatic Folder Detection
+          # This finds the folder containing project.godot, no matter how deep it is
+          PROJECT_ROOT=$(find . -name "project.godot" -exec dirname {} \;)
+          echo "Found project at: $PROJECT_ROOT"
+          cd "$PROJECT_ROOT"
 
+          # 2. Verify the DLL exists where Godot needs it
+          if [ -f ".mono/assemblies/Release/Lacie_Engine.dll" ]; then
+            echo "✅ Found pre-compiled DLL in .mono folder"
+          else
+            echo "❌ ERROR: DLL not found in .mono/assemblies/Release/"
+            echo "Checking current directory structure:"
+            ls -R .mono
+            exit 1
+          fi
+
+          # 3. Run Export
+          mkdir -p build/ios
+          Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
+          
       - name: Compile Xcode Project (Unsigned)
         run: |
           cd build/ios
