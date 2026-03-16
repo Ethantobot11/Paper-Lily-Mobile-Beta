@@ -17,10 +17,15 @@ jobs:
       - name: Setup .NET SDKs
         uses: actions/setup-dotnet@v4
         with:
-          # Install both: 6.0 for Godot's internal tools, 3.1 for your project
+          # Use 6.0 for Godot tools and 3.1 for your specific project reqs
           dotnet-version: |
             6.0.x
             3.1.x
+
+      - name: Pin .NET Version
+        run: |
+          # This forces the runner to stop using .NET 10 and use 6.0 instead
+          echo '{"sdk": {"version": "6.0.x", "rollForward": "latestMinor"}}' > global.json
             
       - name: Setup Godot Mono
         run: |
@@ -47,19 +52,16 @@ jobs:
           mkdir -p "$TEMPLATE_DIR"
           cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
 
-      - name: Build .NET Solution
+      - name: Restore and Build
         run: |
-          # Use the 3.1/6.0 environment to restore and build
+          # Use '--path' if your sln is not in the root
           dotnet restore Lacie_Engine.sln
-          # We build in Release to ensure the DLLs are ready for the AOT compiler
           dotnet build Lacie_Engine.sln --configuration Release
-
+          
       - name: Export Godot Project
         run: |
           mkdir -p build/ios
-          # Use --no-window. 
-          # Note: If export still fails here, ensure the preset name "iOS" 
-          # matches exactly what is in your export_presets.cfg
+          # We add the --no-window flag and force the build
           Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
 
       - name: Compile Xcode Project (Unsigned)
