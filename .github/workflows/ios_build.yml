@@ -1,116 +1,74 @@
-name: "Godot iOS Build (Unsigned for TrollStore)"
+name: "Godot iOS Build (Unsigned)"
 
-on:
-  workflow_dispatch:
-  workflow_call:
+on: [push, pull_request]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   export-ios:
-    runs-on: macos-26-intel
-    # REMOVE THE 'defaults: run: working-directory' SECTION ENTIRELY
-    
+    # iOS builds absolutely require macOS runners to use Xcode
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          lfs: true
-          # This forces the code into the root of the workspace
-          # so Lacie_Engine.sln is at /Users/runner/work/Paper-Lily-Mobile-Beta/Lacie_Engine.sln
-          path: '.' 
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.428'
-
-      - name: Pin .NET Version
+      # 1. Install Mono on macOS (Required for Godot C#)
+      - name: Install Mono
         run: |
-          # Now we are in the root, so this creates global.json in the right spot
-          echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
-          dotnet --version
+          brew update
+          brew install mono
 
-      - name: Setup Godot Mono
+      # 2. Setup Godot Mono & Mono Export Templates for macOS
+      - name: Setup Godot Mono & Templates
         run: |
-          wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip -O Godot.zip
-          unzip -q -o Godot.zip
-          APP_PATH=$(find . -name "Godot_mono.app" -type d -not -path "./Godot_mono.app" | head -n 1)
-          [ -n "$APP_PATH" ] && mv "$APP_PATH" ./Godot_mono.app
-          mkdir -p bin
-          ln -sf "$PWD/Godot_mono.app/Contents/MacOS/Godot" bin/Godot
-          echo "$PWD/bin" >> $GITHUB_PATH
+          # Use curl instead of wget for macOS runners
+          # Download Mono Engine for macOS
+          curl -L -o Godot_mono_osx.zip "https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_osx.universal.zip&platform=osx.universal"
+          unzip -q -o Godot_mono_osx.zip
           
-          # Setup Templates
-          wget -nv https://github.com/godotengine/godot-builds/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz -O Templates.tpz
-          mkdir -p /tmp/godot_templates
-          unzip -q -o Templates.tpz -d /tmp/godot_templates
-          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
-          mkdir -p "$TEMPLATE_DIR"
-          cp -r /tmp/godot_templates/templates/* "$TEMPLATE_DIR/"
-
-      - name: Auto-patch Steam calls
-        run: |
-          # This finds all .cs files and comments out lines that mention Steam managers
-          # ONLY for the duration of the CI build
-          find . -name "*.cs" -not -path "*/Steam/*" -exec sed -i '' 's/SteamAchievementManager/\/\/SteamAchievementManager/g' {} +
-          find . -name "*.cs" -not -path "*/Steam/*" -exec sed -i '' 's/SteamPlatformInitializer/\/\/SteamPlatformInitializer/g' {} +
-
-      - name: Build .NET Project and Prep AOT
-        run: |
-          # 1. Build your project (the part that worked!)
-          dotnet build Lacie_Engine.csproj --configuration Release -p:GodotTargetPlatform=iphone -o ./out
-
-          # 2. Create the target folder
-          mkdir -p .mono/assemblies/Release
-
-          # 3. Copy your game DLLs
-          cp -v ./out/*.dll .mono/assemblies/Release/
-
-          # 4. THE MISSING PIECE: Copy Godot's internal C# glue
-          # We extract these from the Godot_mono.app you downloaded
-          # The path might vary slightly, but for 3.5.3 it's usually here:
-          GODOT_RESOURCE_DIR="Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
+          # Download Templates
+          curl -L -o Godot_templates.tpz "https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_export_templates.tpz&platform=templates"
           
-          if [ -d "$GODOT_RESOURCE_DIR" ]; then
-            echo "Copying GodotSharp glue..."
-            cp -v "$GODOT_RESOURCE_DIR"/*.dll .mono/assemblies/Release/
-          else
-            echo "Searching for GodotSharp.dll..."
-            find Godot_mono.app -name "GodotSharp.dll" -exec cp -v {} .mono/assemblies/Release/ \;
-          fi
-
-      - name: Export Godot Project
-        run: |
-          PROJECT_ROOT=$(find . -name "project.godot" -exec dirname {} \;)
-          cd "$PROJECT_ROOT"
+          # Extract to temporary folder
+          unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
           
+          # Godot looks for templates in ~/Library/Application Support/Godot/ on macOS
+          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+
+      # 3. Export Raw Xcode Project
+      - name: Export Xcode Project
+        run: |
           mkdir -p build/ios
-          # Godot will now see the DLLs in the .mono folder we just populated
-          Godot --no-window --verbose --export "iOS" build/ios/Paper-Lily.xcodeproj
           
-      - name: Compile Xcode Project (Unsigned)
-        run: |
-          cd build/ios
-          # Use the legacy linker flag for Xcode 17+ (the 2026 default)
-          xcodebuild build \
-            -project Paper-Lily.xcodeproj \
-            -scheme "Paper-Lily" \
-            -configuration Release \
-            -sdk iphoneos \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            OTHER_LDFLAGS="-Wl,-ld64"
+          # By not using the .ipa extension, we force Godot to just dump the Xcode project.
+          # We name it 'game' so we know exactly what the Xcode project and scheme will be named.
+          ./Godot_mono.app/Contents/MacOS/Godot --no-window --export "iOS" build/ios/game
+          
+          echo "--- VERIFYING XCODE PROJECT ---"
+          ls -la build/ios/
 
-      - name: Package IPA for TrollStore
+      # 4. Compile Unsigned iOS App
+      - name: Compile Unsigned IPA
         run: |
           cd build/ios
-          mkdir -p Payload
-          cp -r build/Release-iphoneos/Paper-Lily.app Payload/
-          zip -r Paper-Lily-Unsigned.ipa Payload
           
+          # Run xcodebuild and explicitly turn off ALL Apple code signing requirements
+          xcodebuild -project game.xcodeproj -scheme game -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
+          
+          # Apple requires .ipa files to contain a folder named exactly "Payload"
+          mkdir -p Payload
+          
+          # Move the compiled .app payload into the folder
+          cp -R build/Release-iphoneos/*.app Payload/
+          
+          # Zip it up as an unsigned .ipa
+          zip -q -r game-unsigned.ipa Payload
+
+      # 5. Upload Artifact
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Paper-Lily-TrollStore
-          path: build/ios/Paper-Lily-Unsigned.ipa
+          name: ios-unsigned-ipa
+          path: build/ios/game-unsigned.ipa
