@@ -64,20 +64,25 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Export Xcode Project
-        env:
-          # This helps fix the 'NULL cString' crash
-          LANG: en_US.UTF-8
-          LC_ALL: en_US.UTF-8
-          # Point Godot explicitly to the dotnet path
-          DOTNET_ROOT: /usr/local/share/dotnet
+      - name: Manual Build and File Placement
         run: |
-          mkdir -p build/ios
-          
-          # We run a build manually first to 'prime' the assemblies
+          # 1. Compile the code using dotnet (Fixes the 28 interface errors)
           dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
           
-          # Now run the export
+          # 2. Create the hidden folder Godot 3.5.x looks for during export
+          mkdir -p .mono/assemblies/Release
+          
+          # 3. Copy the fresh DLLs into that folder
+          # This 'tricks' Godot into thinking it already built the project
+          cp bin/Release/netstandard2.1/*.dll .mono/assemblies/Release/
+
+      - name: Export Xcode Project
+        env:
+          # Prevent the string conversion crash
+          LANG: "en_US.UTF-8"
+          LC_ALL: "en_US.UTF-8"
+        run: |
+          mkdir -p build/ios
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
 
       - name: Upload Corrupted Project for Inspection
