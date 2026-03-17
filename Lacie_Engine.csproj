@@ -3,7 +3,7 @@
     <AssemblyName>Lacie_Engine</AssemblyName>
     <EnableDynamicLoading>True</EnableDynamicLoading>
     <Nullable>disable</Nullable>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <DefineConstants Condition="'$(GodotTargetPlatform)' == 'iphone'">$(DefineConstants);IS_IOS_BUILD</DefineConstants>
   </PropertyGroup>
 
