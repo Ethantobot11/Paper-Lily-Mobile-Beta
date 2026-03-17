@@ -66,16 +66,19 @@ jobs:
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
         env:
-          # Setting standard locale variables fixes the macOS 'NSString NULL cString' crash
+          # This helps fix the 'NULL cString' crash
           LANG: en_US.UTF-8
           LC_ALL: en_US.UTF-8
+          # Point Godot explicitly to the dotnet path
+          DOTNET_ROOT: /usr/local/share/dotnet
         run: |
           mkdir -p build/ios
           
-          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game
+          # We run a build manually first to 'prime' the assemblies
+          dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
           
-          echo "--- VERIFYING XCODE PROJECT ---"
-          ls -la build/ios/
+          # Now run the export
+          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
