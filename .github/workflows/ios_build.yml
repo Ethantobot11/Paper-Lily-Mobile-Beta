@@ -57,13 +57,6 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      - name: Prepare Mono Folders
-        run: |
-          # Godot 3.5.3 looks in specific folders. 
-          # If they don't exist, it tries to build them and crashes.
-          mkdir -p .mono/assemblies/Release
-          cp bin/Release/netstandard2.1/Lacie_Engine.dll .mono/assemblies/Release/
-
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
         run: |
