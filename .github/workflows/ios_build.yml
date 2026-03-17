@@ -66,18 +66,22 @@ jobs:
       # 4. Export Raw Xcode Project
       - name: Export Xcode Project
         env:
-          # This helps fix the 'NULL cString' crash
-          LANG: en_US.UTF-8
-          LC_ALL: en_US.UTF-8
-          # Point Godot explicitly to the dotnet path
-          DOTNET_ROOT: /usr/local/share/dotnet
+          # Forces the locale to prevent string conversion errors
+          LANG: "en_US.UTF-8"
+          LC_ALL: "en_US.UTF-8"
+          # These paths tell Godot exactly where Mono is so it doesn't search and crash
+          MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current"
+          PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         run: |
           mkdir -p build/ios
           
-          # We run a build manually first to 'prime' the assemblies
+          # CRITICAL: We build the project MANUALLY first using dotnet.
+          # This creates the .dll files Godot is looking for so it doesn't try to 
+          # run its own internal (crashing) build process.
           dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
           
-          # Now run the export
+          # Now we run Godot with --no-window to export. 
+          # We use the full path to the binary inside the .app
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
 
       - name: Upload Corrupted Project for Inspection
