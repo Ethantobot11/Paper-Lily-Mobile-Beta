@@ -64,24 +64,29 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Export Xcode Project
+      - name: Build and Export
         env:
-          # Forces the locale to prevent string conversion errors
+          # Fixes the locale crash
           LANG: "en_US.UTF-8"
           LC_ALL: "en_US.UTF-8"
-          # These paths tell Godot exactly where Mono is so it doesn't search and crash
-          MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current"
-          PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          # Direct path to Mono
+          PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin:/usr/local/bin:/usr/bin:/bin"
         run: |
-          mkdir -p build/ios
-          
-          # CRITICAL: We build the project MANUALLY first using dotnet.
-          # This creates the .dll files Godot is looking for so it doesn't try to 
-          # run its own internal (crashing) build process.
+          # 1. Manually build the C# project for iOS
+          # This creates the DLLs that Godot needs
           dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
           
-          # Now we run Godot with --no-window to export. 
-          # We use the full path to the binary inside the .app
+          # 2. Create the internal Godot folders and MOVE the DLLs there
+          # Godot 3.5.3 looks in .mono/assemblies/Release during export
+          mkdir -p .mono/assemblies/Release
+          cp bin/Release/netstandard2.1/*.dll .mono/assemblies/Release/
+          
+          # 3. Create the build directory
+          mkdir -p build/ios
+          
+          # 4. Run the export
+          # Because run_export_build is false, Godot will just grab our 
+          # manual DLLs and finish writing the Xcode project.
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
 
       - name: Upload Corrupted Project for Inspection
