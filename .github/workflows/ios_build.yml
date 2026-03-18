@@ -64,34 +64,25 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Force Export (Ghost Mode)
+      - name: Export Xcode Project
         env:
           LANG: "en_US.UTF-8"
           LC_ALL: "en_US.UTF-8"
+          # FORCE these paths so the C++ internal 'stringWithUTF8String' 
+          # receives a valid string instead of NULL
+          GODOT_MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current"
+          MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/lib/mono/4.5"
+          OBJC_DISABLE_INITIALIZE_FORK_SAFETY: "YES"
         run: |
-          # 1. Back up the project file
-          cp project.godot project.godot.bak
-
-          # 2. REMOVE the [mono] section from project.godot temporarily.
-          # This tricks the Godot binary into thinking it's a GDSCRIPT project,
-          # which skips the buggy Mono path-finding code entirely.
-          sed -i '' '/\[mono\]/,/^\s*$/d' project.godot
-          
-          # 3. Create build directory
+          # 1. Ensure the directory exists
           mkdir -p build/ios
-
-          # 4. Run the export
-          # Godot will now export the .pck and project files without crashing.
-          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
-
-          # 5. Restore the project file
-          mv project.godot.bak project.godot
-
-          # 6. MANUALLY inject your pre-compiled DLLs into the Xcode structure
-          # Since Godot didn't 'know' it was a Mono project, we move the files ourselves.
-          # This path is where Godot 3.5.x expects them in the Xcode project.
-          mkdir -p build/ios/data/managed
-          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
+          
+          # 2. Point Godot to the pre-installed Mono explicitly
+          # This is the last-ditch effort to satisfy the internal C++ check
+          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy \
+            --path . \
+            --export "iOS" build/ios/game.xcodeproj \
+            --main-pack
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
