@@ -57,17 +57,14 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      - name: Manual Build with Godot Glue
+      - name: Force Assemblies Path
         run: |
-          # 1. Ensure the API folder actually exists (Debugging)
-          ls -R Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/
+          # Copy your pre-compiled repo DLLs to the root just in case
+          cp .mono/assemblies/Release/*.dll .
           
-          # 2. Build using dotnet
-          dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
-          
-          # 3. Move the results to the magic folder for export
+          # Make sure Godot sees them in the expected metadata folder
           mkdir -p .mono/assemblies/Release
-          cp bin/Release/netstandard2.1/*.dll .mono/assemblies/Release/
+          cp .mono/assemblies/Release/*.dll .mono/assemblies/Release/
           
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
@@ -76,32 +73,16 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Build and Export iOS
+      - name: Export Xcode Project (No Build)
         env:
-          # Prevent the 'NULL cString' crash by providing paths Godot seeks
+          # Fixes the 'NULL cString' crash
           LANG: "en_US.UTF-8"
           LC_ALL: "en_US.UTF-8"
-          DOTNET_ROOT: "/usr/local/share/dotnet"
         run: |
-          # 1. Clean up old artifacts
-          rm -rf .mono/assemblies
-          mkdir -p .mono/assemblies/Release
-          
-          # 2. Build the C# project manually (Fixes the 28 CS8701 errors)
-          # We use netstandard2.1 to support your Interface code
-          dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
-          
-          # 3. MANUALLY place the DLLs where Godot 3.5.3 expects them.
-          # If Godot doesn't see these, it tries to build them itself, crashes, 
-          # and leaves the Xcode project 'damaged'.
-          cp bin/Release/netstandard2.1/Lacie_Engine.dll .mono/assemblies/Release/
-          # Also copy any dependencies if they exist in your bin
-          cp bin/Release/netstandard2.1/*.dll .mono/assemblies/Release/ || true
-          
-          # 4. Run the actual Godot Export
-          # Since your preset has run_export_build=false, Godot will skip 
-          # its buggy build step and just package the DLLs we moved.
           mkdir -p build/ios
+          
+          # We tell Godot to export, but we rely on your GitHub files.
+          # We DO NOT run 'dotnet build' or 'msbuild' here at all.
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
 
       - name: Upload Corrupted Project for Inspection
