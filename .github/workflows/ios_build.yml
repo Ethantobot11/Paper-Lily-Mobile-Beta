@@ -64,22 +64,26 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Force Export Without Mono Crash
+      - name: Export Xcode Project
         env:
           LANG: "en_US.UTF-8"
           LC_ALL: "en_US.UTF-8"
+          # Manually define the paths Godot 3.5.x looks for internally
+          # This prevents the 'NULL cString' crash
+          GODOT4_MONO_MSBUILD_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin/msbuild"
+          MSBUILD_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin/msbuild"
+          MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin/mono"
         run: |
           mkdir -p build/ios
           
-          # 1. Temporarily rename the project file to 'hide' the C# nature from the exporter
-          mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
+          # We MUST ensure the .csproj is present (undoing the previous rename)
+          # If you haven't renamed it back, uncomment the next line:
+          # mv Lacie_Engine.csproj.bak Lacie_Engine.csproj || true
           
-          # 2. Run the export
-          # Godot will now export without trying to trigger the buggy Mono build path
+          # Run the export. 
+          # Since run_export_build=false in your preset, it should just 
+          # check these paths, see they exist, and finish the export.
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
-          
-          # 3. Restore the project file
-          mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
