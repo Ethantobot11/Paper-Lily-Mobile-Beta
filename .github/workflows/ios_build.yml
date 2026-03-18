@@ -57,6 +57,18 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
+      - name: Manual Build with Godot Glue
+        run: |
+          # 1. Ensure the API folder actually exists (Debugging)
+          ls -R Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/
+          
+          # 2. Build using dotnet
+          dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
+          
+          # 3. Move the results to the magic folder for export
+          mkdir -p .mono/assemblies/Release
+          cp bin/Release/netstandard2.1/*.dll .mono/assemblies/Release/
+          
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
         run: |
