@@ -64,26 +64,34 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Export Xcode Project
+      - name: Force Export (Ghost Mode)
         env:
           LANG: "en_US.UTF-8"
           LC_ALL: "en_US.UTF-8"
-          # Manually define the paths Godot 3.5.x looks for internally
-          # This prevents the 'NULL cString' crash
-          GODOT4_MONO_MSBUILD_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin/msbuild"
-          MSBUILD_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin/msbuild"
-          MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/bin/mono"
         run: |
+          # 1. Back up the project file
+          cp project.godot project.godot.bak
+
+          # 2. REMOVE the [mono] section from project.godot temporarily.
+          # This tricks the Godot binary into thinking it's a GDSCRIPT project,
+          # which skips the buggy Mono path-finding code entirely.
+          sed -i '' '/\[mono\]/,/^\s*$/d' project.godot
+          
+          # 3. Create build directory
           mkdir -p build/ios
-          
-          # We MUST ensure the .csproj is present (undoing the previous rename)
-          # If you haven't renamed it back, uncomment the next line:
-          # mv Lacie_Engine.csproj.bak Lacie_Engine.csproj || true
-          
-          # Run the export. 
-          # Since run_export_build=false in your preset, it should just 
-          # check these paths, see they exist, and finish the export.
+
+          # 4. Run the export
+          # Godot will now export the .pck and project files without crashing.
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
+
+          # 5. Restore the project file
+          mv project.godot.bak project.godot
+
+          # 6. MANUALLY inject your pre-compiled DLLs into the Xcode structure
+          # Since Godot didn't 'know' it was a Mono project, we move the files ourselves.
+          # This path is where Godot 3.5.x expects them in the Xcode project.
+          mkdir -p build/ios/data/managed
+          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
