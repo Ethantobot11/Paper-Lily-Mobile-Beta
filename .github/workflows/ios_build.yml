@@ -56,15 +56,6 @@ jobs:
           # Godot looks for templates in ~/Library/Application Support/Godot/ on macOS
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-
-      - name: Force Assemblies Path
-        run: |
-          # Copy your pre-compiled repo DLLs to the root just in case
-          cp .mono/assemblies/Release/*.dll .
-          
-          # Make sure Godot sees them in the expected metadata folder
-          mkdir -p .mono/assemblies/Release
-          cp .mono/assemblies/Release/*.dll .mono/assemblies/Release/
           
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
@@ -73,17 +64,22 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Export Xcode Project (No Build)
+      - name: Force Export Without Mono Crash
         env:
-          # Fixes the 'NULL cString' crash
           LANG: "en_US.UTF-8"
           LC_ALL: "en_US.UTF-8"
         run: |
           mkdir -p build/ios
           
-          # We tell Godot to export, but we rely on your GitHub files.
-          # We DO NOT run 'dotnet build' or 'msbuild' here at all.
+          # 1. Temporarily rename the project file to 'hide' the C# nature from the exporter
+          mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
+          
+          # 2. Run the export
+          # Godot will now export without trying to trigger the buggy Mono build path
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
+          
+          # 3. Restore the project file
+          mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
