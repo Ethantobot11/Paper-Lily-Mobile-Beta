@@ -10,6 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+     <Reference Include="GodotSharp" Condition="'$(GodotTargetPlatform)' == 'iphone'">
+      <HintPath>$(ProjectDir)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/GodotSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="GodotSharpEditor" Condition="'$(GodotTargetPlatform)' == 'iphone'">
+      <HintPath>$(ProjectDir)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/GodotSharpEditor.dll</HintPath>
+    </Reference>
     <Reference Include="Karambolo.PO">
       <HintPath>_mono_referenced_assemblies/Karambolo.PO.dll</HintPath>
     </Reference>
