@@ -64,24 +64,31 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export Raw Xcode Project
-      - name: Manual Build and File Placement
-        run: |
-          # 1. Compile the code using dotnet (Fixes the 28 interface errors)
-          dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
-          
-          # 2. Create the hidden folder Godot 3.5.x looks for during export
-          mkdir -p .mono/assemblies/Release
-          
-          # 3. Copy the fresh DLLs into that folder
-          # This 'tricks' Godot into thinking it already built the project
-          cp bin/Release/netstandard2.1/*.dll .mono/assemblies/Release/
-
-      - name: Export Xcode Project
+      - name: Build and Export iOS
         env:
-          # Prevent the string conversion crash
+          # Prevent the 'NULL cString' crash by providing paths Godot seeks
           LANG: "en_US.UTF-8"
           LC_ALL: "en_US.UTF-8"
+          DOTNET_ROOT: "/usr/local/share/dotnet"
         run: |
+          # 1. Clean up old artifacts
+          rm -rf .mono/assemblies
+          mkdir -p .mono/assemblies/Release
+          
+          # 2. Build the C# project manually (Fixes the 28 CS8701 errors)
+          # We use netstandard2.1 to support your Interface code
+          dotnet build Lacie_Engine.csproj -c Release /p:GodotTargetPlatform=iphone
+          
+          # 3. MANUALLY place the DLLs where Godot 3.5.3 expects them.
+          # If Godot doesn't see these, it tries to build them itself, crashes, 
+          # and leaves the Xcode project 'damaged'.
+          cp bin/Release/netstandard2.1/Lacie_Engine.dll .mono/assemblies/Release/
+          # Also copy any dependencies if they exist in your bin
+          cp bin/Release/netstandard2.1/*.dll .mono/assemblies/Release/ || true
+          
+          # 4. Run the actual Godot Export
+          # Since your preset has run_export_build=false, Godot will skip 
+          # its buggy build step and just package the DLLs we moved.
           mkdir -p build/ios
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
 
