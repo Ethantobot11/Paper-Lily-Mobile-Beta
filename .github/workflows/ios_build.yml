@@ -40,20 +40,17 @@ jobs:
           echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
 
       # 2. Setup Godot Mono & Mono Export Templates for macOS
-      - name: Setup Godot Mono & Templates
+      # 2. Setup STANDARD Godot (To avoid the Mono crash)
+      - name: Setup Standard Godot & Templates
         run: |
-          # Use curl instead of wget for macOS runners
-          # Download Mono Engine for macOS
-          curl -L -o Godot_mono_osx.zip "https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_osx.universal.zip&platform=osx.universal"
-          unzip -q -o Godot_mono_osx.zip
+          # Download STANDARD Engine (Non-Mono) to bypass the NULL cString crash
+          curl -L -o Godot_standard_osx.zip "https://downloads.godotengine.org/3.5.3/Godot_v3.5.3-stable_osx.universal.zip"
+          unzip -q -o Godot_standard_osx.zip
           
-          # Download Templates
-          curl -L -o Godot_templates.tpz "https://downloads.godotengine.org/?version=3.5.3&flavor=stable&slug=mono_export_templates.tpz&platform=templates"
-          
-          # Extract to temporary folder
+          # Use the same Mono templates you already downloaded (they contain the iOS binaries)
+          curl -L -o Godot_templates.tpz "https://downloads.godotengine.org/3.5.3/mono/Godot_v3.5.3-stable_mono_export_templates.tpz"
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
           
-          # Godot looks for templates in ~/Library/Application Support/Godot/ on macOS
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           
@@ -63,26 +60,19 @@ jobs:
           # Use dotnet but force it to build the project file specifically
           dotnet build Lacie_Engine.csproj -c Release
 
-      # 4. Export Raw Xcode Project
+      # 4. Export via Standard Godot + Manual Assembly Injection
       - name: Export Xcode Project
-        env:
-          LANG: "en_US.UTF-8"
-          LC_ALL: "en_US.UTF-8"
-          # FORCE these paths so the C++ internal 'stringWithUTF8String' 
-          # receives a valid string instead of NULL
-          GODOT_MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current"
-          MONO_PATH: "/Library/Frameworks/Mono.framework/Versions/Current/lib/mono/4.5"
-          OBJC_DISABLE_INITIALIZE_FORK_SAFETY: "YES"
         run: |
-          # 1. Ensure the directory exists
           mkdir -p build/ios
           
-          # 2. Point Godot to the pre-installed Mono explicitly
-          # This is the last-ditch effort to satisfy the internal C++ check
-          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy \
-            --path . \
-            --export "iOS" build/ios/game.xcodeproj \
-            --main-pack
+          # We use the STANDARD Godot.app here. 
+          # It won't crash because it doesn't look for Mono during initialization.
+          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
+          
+          # Now, we MANUALLY inject the Mono flavor into the standard export.
+          # This folder is where Godot 3.5.x C# games store their logic.
+          mkdir -p build/ios/data/managed
+          cp -r .mono/assemblies/Release/*.dll build/ios/data/managed/
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
