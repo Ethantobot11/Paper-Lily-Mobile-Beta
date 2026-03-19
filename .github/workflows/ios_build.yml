@@ -64,6 +64,12 @@ jobs:
           # Use dotnet but force it to build the project file specifically
           dotnet build Lacie_Engine.csproj -c Release
 
+      - name: Inject C# Assemblies
+        run: |
+          # Create the path inside the 'game' subfolder
+          mkdir -p build/ios/game/data/managed
+          cp .mono/assemblies/Release/*.dll build/ios/game/data/managed/
+
       # 4. Export via Standard Godot + Manual Assembly Injection
       # 4. Export via Standard Godot + Semicolon Fix + Assembly Injection
      # 4. Export via Standard Godot + Manual Assembly Injection
@@ -111,8 +117,8 @@ jobs:
         run: |
           cd build/ios
           xcodebuild build \
-            -project Paper-Lily.xcodeproj \
-            -scheme "Paper-Lily" \
+            -project game.xcodeproj \
+            -scheme "game" \
             -configuration Release \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
