@@ -66,25 +66,38 @@ jobs:
 
       # 4. Export via Standard Godot + Manual Assembly Injection
       # 4. Export via Standard Godot + Semicolon Fix + Assembly Injection
+     # 4. Export via Standard Godot + Manual Assembly Injection
       - name: Export Xcode Project
         run: |
           mkdir -p build/ios
           
-          # 1. Run the export (this creates the 'damaged' file)
-          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj || true
+          # Use the Standard Godot binary. 
+          # It won't crash because it doesn't have the Mono initialization bug.
+          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
           
-          # 2. THE FIX: Repair the broken pbxproj file
-          # We search for the common 'broken' line patterns Godot 3.5 creates when confused by Mono
-          # and force a semicolon and closing bracket where they belong.
-          sed -i '' 's/path = "data.pck"/path = "data.pck";/g' build/ios/game.xcodeproj/project.pbxproj
-          sed -i '' 's/name = "data.pck"/name = "data.pck";/g' build/ios/game.xcodeproj/project.pbxproj
-          
-          # 3. MANUALLY inject your pre-compiled DLLs
-          mkdir -p build/ios/game/data/managed
-          cp .mono/assemblies/Release/*.dll build/ios/game/data/managed/
+          # MANUALLY inject your pre-compiled DLLs from your repo
+          # This makes the "Standard" export work as a "Mono" game.
+          mkdir -p build/ios/data/managed
+          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
 
-          # 4. Verify the project is readable now (Optional but helpful)
-          grep -C 5 "data.pck" build/ios/game.xcodeproj/project.pbxproj
+      - name: Repair Damaged Xcode Project
+        run: |
+          # The file to fix
+          PBXPROJ="build/ios/game.xcodeproj/project.pbxproj"
+
+          # 1. Fix the missing semicolon/format for the Launch Screen line
+          # This line is missing the name and has a bad path format
+          sed -i '' 's/90DD2D9D24B36E8000717FE1 =/90DD2D9D24B36E8000717FE1 \/* Launch Screen.storyboard *\/ =/g' "$PBXPROJ"
+          
+          # 2. Ensure all lines in the PBXFileReference end with a semicolon before the closing brace
+          # Godot sometimes misses these when it crashes
+          sed -i '' 's/sourceTree = "<group>"; }/sourceTree = "<group>"; };/g' "$PBXPROJ"
+
+          # 3. Final safety check: Replace any double-bracket errors
+          sed -i '' 's/};;/};/g' "$PBXPROJ"
+          
+          echo "Xcode project repaired. Checking for errors..."
+          grep -n "90DD2D9D24B36E8000717FE1" "$PBXPROJ"
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
@@ -93,6 +106,20 @@ jobs:
           name: broken-ios-project
           path: build/ios/game.xcodeproj/project.pbxproj
           retention-days: 1
+
+      - name: Build Xcode Project (Unsigned)
+        run: |
+          cd build/ios
+          xcodebuild build \
+            -project Paper-Lily.xcodeproj \
+            -scheme "Paper-Lily" \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            OTHER_LDFLAGS="-Wl,-ld64"
 
       # 5. Upload Artifact
       - name: Upload Artifact
