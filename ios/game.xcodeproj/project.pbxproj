@@ -5,14 +5,17 @@
 	};
 	objectVersion = 46;
 	objects = {
+		/* Begin PBXBuildFile section */
 		1F1575721F582BE20003B888 /* dylibs in Resources */ = {isa = PBXBuildFile; fileRef = 1F1575711F582BE20003B888 /* dylibs */; };
 		DEADBEEF2F582BE20003B888 /* game.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEADBEEF1F582BE20003B888 /* game.xcframework */; };
-		
 		1FF8DBB11FBA9DE1009DE660 /* dummy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1FF8DBB01FBA9DE1009DE660 /* dummy.cpp */; };
 		D07CD44E1C5D589C00B7FB28 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D07CD44D1C5D589C00B7FB28 /* Images.xcassets */; };
 		D0BCFE4618AEBDA2004A7AAE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D0BCFE4418AEBDA2004A7AAE /* InfoPlist.strings */; };
 		D0BCFE7818AEBFEB004A7AAE /* game.pck in Resources */ = {isa = PBXBuildFile; fileRef = D0BCFE7718AEBFEB004A7AAE /* game.pck */; };
 		90DD2D9E24B36E8000717FE1 /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 90DD2D9D24B36E8000717FE1 /* Launch Screen.storyboard */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
 		90A13CD024AA68E500E8464F /* Embed Frameworks */ = {
 				isa = PBXCopyFilesBuildPhase;
 				buildActionMask = 2147483647;
@@ -23,17 +26,22 @@
 				name = "Embed Frameworks";
 				runOnlyForDeploymentPostprocessing = 0;
 		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
 		1F1575711F582BE20003B888 /* dylibs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = dylibs; path = "game/dylibs"; sourceTree = "<group>"; };
 		DEADBEEF1F582BE20003B888 /* game.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = godot; path = "game.xcframework"; sourceTree = "<group>"; };
-		
 		1FF4C1881F584E6300A41E41 /* game.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "game.entitlements"; sourceTree = "<group>"; };
 		1FF8DBB01FBA9DE1009DE660 /* dummy.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = dummy.cpp; sourceTree = "<group>"; };
 		D07CD44D1C5D589C00B7FB28 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		D0BCFE3418AEBDA2004A7AAE /* game.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "game.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D0BCFE4318AEBDA2004A7AAE /* game-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "game-Info.plist"; sourceTree = "<group>"; };
 		D0BCFE4518AEBDA2004A7AAE /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-				D0BCFE7718AEBFEB004A7AAE /* game.pck */ = {isa = PBXFileReference; lastKnownFileType = file; path = "game.pck"; sourceTree = "<group>"; };
+		D0BCFE7718AEBFEB004A7AAE /* game.pck */ = {isa = PBXFileReference; lastKnownFileType = file; path = "game.pck"; sourceTree = "<group>"; };
 		90DD2D9D24B36E8000717FE1 /* Launch Screen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
 		D0BCFE3118AEBDA2004A7AAE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -42,6 +50,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
 		D0BCFE2B18AEBDA2004A7AAE = {
 			isa = PBXGroup;
 			children = (
@@ -84,6 +95,103 @@
 		D0BCFE4218AEBDA2004A7AAE /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				D0BCFE4318AEBDA2004A7AAE /* game-Info.plist */,
+				D0BCFE4418AEBDA2004A7AAE /* InfoPlist.strings */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D0BCFE3318AEBDA2004A7AAE /* game */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0BCFE7118AEBDA3004A7AAE /* Build configuration list for PBXNativeTarget "game" */;
+			buildPhases = (
+				D0BCFE3018AEBDA2004A7AAE /* Sources */,
+				D0BCFE3118AEBDA2004A7AAE /* Frameworks */,
+				D0BCFE3218AEBDA2004A7AAE /* Resources */,
+				90A13CD024AA68E500E8464F /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "game";
+			productName = "Paper_Lily";
+			productReference = D0BCFE3418AEBDA2004A7AAE /* game.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D0BCFE2C18AEBDA2004A7AAE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+				ORGANIZATIONNAME = GodotEngine;
+				TargetAttributes = {
+					D0BCFE3318AEBDA2004A7AAE = {
+						DevelopmentTeam = ethantobot@icloud.com;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+						};
+					};
+				};
+			};
+			buildConfigurationList = D0BCFE2F18AEBDA2004A7AAE /* Build configuration list for PBXProject "game" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D0BCFE2B18AEBDA2004A7AAE;
+			productRefGroup = D0BCFE3518AEBDA2004A7AAE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D0BCFE3318AEBDA2004A7AAE /* game */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D0BCFE3218AEBDA2004A7AAE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D07CD44E1C5D589C00B7FB28 /* Images.xcassets in Resources */,
+				D0BCFE7818AEBFEB004A7AAE /* game.pck in Resources */,
+				90DD2D9E24B36E8000717FE1 /* Launch Screen.storyboard in Resources */,
+				D0BCFE4618AEBDA2004A7AAE /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D0BCFE3018AEBDA2004A7AAE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FF8DBB11FBA9DE1009DE660 /* dummy.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		D0BCFE4418AEBDA2004A7AAE /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D0BCFE4518AEBDA2004A7AAE /* en */,
+							);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 				D0BCFE4318AEBDA2004A7AAE /* game-Info.plist */,
 				D0BCFE4418AEBDA2004A7AAE /* InfoPlist.strings */,
 			);
