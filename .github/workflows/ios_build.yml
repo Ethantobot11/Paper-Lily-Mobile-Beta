@@ -116,7 +116,7 @@ jobs:
       - name: Build Xcode Project (Unsigned)
         run: |
           cd build/ios
-          xcodebuild build \
+          xcodebuild build/ios \
             -project game.xcodeproj \
             -scheme "game" \
             -configuration Release \
