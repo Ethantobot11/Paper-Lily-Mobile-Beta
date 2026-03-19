@@ -66,10 +66,14 @@ jobs:
 
       - name: Inject C# Assemblies
         run: |
-          # Create the path inside the 'game' subfolder
-          mkdir -p build/ios/game/data/managed
+          # Godot creates 'build/ios/game/'. We need to put DLLs in the 'data' folder there.
+          mkdir -p build/ios/game/data/managed/
           cp .mono/assemblies/Release/*.dll build/ios/game/data/managed/
-
+          
+          # Also copy to the root of the project folder just in case
+          mkdir -p build/ios/data/managed/
+          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
+          
       # 4. Export via Standard Godot + Manual Assembly Injection
       # 4. Export via Standard Godot + Semicolon Fix + Assembly Injection
      # 4. Export via Standard Godot + Manual Assembly Injection
@@ -88,22 +92,19 @@ jobs:
 
       - name: Repair Damaged Xcode Project
         run: |
-          # The file to fix
           PBXPROJ="build/ios/game.xcodeproj/project.pbxproj"
-
-          # 1. Fix the missing semicolon/format for the Launch Screen line
-          # This line is missing the name and has a bad path format
+          
+          # Fix the Launch Screen line
           sed -i '' 's/90DD2D9D24B36E8000717FE1 =/90DD2D9D24B36E8000717FE1 \/* Launch Screen.storyboard *\/ =/g' "$PBXPROJ"
           
-          # 2. Ensure all lines in the PBXFileReference end with a semicolon before the closing brace
-          # Godot sometimes misses these when it crashes
-          sed -i '' 's/sourceTree = "<group>"; }/sourceTree = "<group>"; };/g' "$PBXPROJ"
-
-          # 3. Final safety check: Replace any double-bracket errors
-          sed -i '' 's/};;/};/g' "$PBXPROJ"
+          # Fix the game.pck line (handling tabs/spaces)
+          sed -i '' 's/path = "game.pck"/path = "game.pck";/g' "$PBXPROJ"
           
-          echo "Xcode project repaired. Checking for errors..."
-          grep -n "90DD2D9D24B36E8000717FE1" "$PBXPROJ"
+          # Fix the missing semicolons at the end of PBXFileReference lines
+          sed -i '' 's/sourceTree = "<group>"; }/sourceTree = "<group>"; };/g' "$PBXPROJ"
+          
+          # Remove any potential double semicolons created by the above
+          sed -i '' 's/};;/};/g' "$PBXPROJ"
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
@@ -115,8 +116,11 @@ jobs:
 
       - name: Build Xcode Project (Unsigned)
         run: |
+          # Move into the export directory
           cd build/ios
-          xcodebuild build/ios \
+          
+          # Run xcodebuild on the local directory
+          xcodebuild \
             -project game.xcodeproj \
             -scheme "game" \
             -configuration Release \
@@ -124,8 +128,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            OTHER_LDFLAGS="-Wl,-ld64"
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
 
       # 5. Upload Artifact
       - name: Upload Artifact
