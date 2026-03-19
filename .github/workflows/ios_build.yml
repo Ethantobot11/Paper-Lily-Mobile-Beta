@@ -39,20 +39,33 @@ jobs:
         run: |
           echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
 
-      # 2. Setup Godot Mono & Mono Export Templates for macOS
       # 2. Setup STANDARD Godot (To avoid the Mono crash)
       - name: Setup Standard Godot & Templates
         run: |
-          # Download STANDARD Engine (Non-Mono) to bypass the NULL cString crash
-          curl -L -o Godot_standard_osx.zip "https://downloads.godotengine.org/3.5.3/Godot_v3.5.3-stable_osx.universal.zip"
+          # Download STANDARD Engine (Non-Mono) - Direct Link
+          curl -L -o Godot_standard_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip"
           unzip -q -o Godot_standard_osx.zip
           
-          # Use the same Mono templates you already downloaded (they contain the iOS binaries)
-          curl -L -o Godot_templates.tpz "https://downloads.godotengine.org/3.5.3/mono/Godot_v3.5.3-stable_mono_export_templates.tpz"
+          # Download Mono Templates (Required for the iOS binary logic)
+          curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
           
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+
+      # 4. Export via Standard Godot + Manual Assembly Injection
+      - name: Export Xcode Project
+        run: |
+          mkdir -p build/ios
+          
+          # Use the Standard Godot binary. 
+          # It won't crash because it doesn't have the Mono initialization bug.
+          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
+          
+          # MANUALLY inject your pre-compiled DLLs from your repo
+          # This makes the "Standard" export work as a "Mono" game.
+          mkdir -p build/ios/data/managed
+          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
           
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
