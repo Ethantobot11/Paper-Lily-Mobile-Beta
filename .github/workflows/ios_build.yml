@@ -4,127 +4,58 @@ on:
   workflow_dispatch:
   workflow_call:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   export-ios:
-    # iOS builds absolutely require macOS runners to use Xcode
     runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          lfs: false
-          fetch-depth: 0
+          lfs: false # We don't need LFS if the .pck is gone
 
-      # 1. Install Mono on macOS (Required for Godot C#)
-      - name: Install Mono
+      # 1. Setup Mono for the C# Logic
+      - name: Install Mono & .NET
         run: |
-          brew update
           brew install mono
-
-      - name: Install NuGet
-        run: |
-          brew update
-          brew install nuget
+          echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
-
         with:
           dotnet-version: '6.0.428'
 
-      - name: Pin .NET Version
-        run: |
-          echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
-
-      # 2. Setup Godot & Mirror Templates to both Standard and Mono paths
+      # 2. Setup Godot (Standard version to avoid Mono initialization crash)
       - name: Setup Godot & Templates
         run: |
-          # Download Standard Godot
           curl -L -o Godot_standard_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip"
           unzip -q -o Godot_standard_osx.zip
           
-          # Download Mono Templates (They work for both if placed correctly)
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
           
-          # Path for Mono (just in case)
-          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-          cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-          
-          # Path for Standard (This is where your log said it is looking)
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
-          
-      # 3. Manually Compile C# Solution via MSBuild
+
+      # 3. Build the C# DLLs
       - name: Build C# Project
         run: |
-          # Use dotnet but force it to build the project file specifically
           dotnet build Lacie_Engine.csproj -c Release
 
+      # 4. Generate the 415MB Pack file automatically
+      - name: Generate Fresh PCK
+        run: |
+          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export-pack "iOS" ios/game.pck
+
+      # 5. Inject the latest C# assemblies into your pre-built folder
       - name: Inject C# Assemblies
         run: |
-          # Godot creates 'build/ios/game/'. We need to put DLLs in the 'data' folder there.
-          mkdir -p build/ios/game/data/managed/
-          cp .mono/assemblies/Release/*.dll build/ios/game/data/managed/
-          
-          # Also copy to the root of the project folder just in case
-          mkdir -p build/ios/data/managed/
-          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
-          
-      # 4. Export via Standard Godot + Manual Assembly Injection
-      # 4. Export via Standard Godot + Semicolon Fix + Assembly Injection
-     # 4. Export via Standard Godot + Manual Assembly Injection
-      - name: Export Xcode Project
-        run: |
-          mkdir -p build/ios
-          
-          # Use the Standard Godot binary. 
-          # It won't crash because it doesn't have the Mono initialization bug.
-          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
-          
-          # MANUALLY inject your pre-compiled DLLs from your repo
-          # This makes the "Standard" export work as a "Mono" game.
-          mkdir -p build/ios/data/managed
-          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
+          mkdir -p ios/game/data/managed/
+          cp .mono/assemblies/Release/*.dll ios/game/data/managed/
 
-      - name: Repair Damaged Xcode Project
-        run: |
-          PBXPROJ="build/ios/game.xcodeproj/project.pbxproj"
-          
-          # 1. Fix the Launch Screen line (Adding missing name/comment)
-          sed -i '' 's/90DD2D9D24B36E8000717FE1 =/90DD2D9D24B36E8000717FE1 \/* Launch Screen.storyboard *\/ =/g' "$PBXPROJ"
-          
-          # 2. Fix the game.pck line (Adding missing semicolon)
-          sed -i '' 's/path = "game.pck"/path = "game.pck";/g' "$PBXPROJ"
-
-          # 3. Fix the 'en' localization line (Adding missing semicolon)
-          sed -i '' 's/path = en.lproj\/InfoPlist.strings/path = en.lproj\/InfoPlist.strings;/g' "$PBXPROJ"
-
-          # 4. GLOBAL FIX: Ensure every PBXFileReference line ends with };
-          # This catches any other lines Godot might have truncated.
-          sed -i '' 's/sourceTree = "<group>"; }/sourceTree = "<group>"; };/g' "$PBXPROJ"
-          
-          # 5. Remove any double semicolons we might have accidentally created
-          sed -i '' 's/};;/};/g' "$PBXPROJ"
-          sed -i '' 's/;;/;/g' "$PBXPROJ"
-
-          echo "Validation: Checking problematic lines..."
-          grep -E "game.pck|90DD2D9D24B36E8000717FE1|en" "$PBXPROJ"
-
-      - name: Upload Corrupted Project for Inspection
-        if: failure()  # This ensures it only runs if the previous step failed
-        uses: actions/upload-artifact@v4
-        with:
-          name: broken-ios-project
-          path: build/ios/game.xcodeproj/project.pbxproj
-          retention-days: 1
-
+      # 6. Build the IPA using your uploaded Xcode project
       - name: Build Xcode Project (Unsigned)
         run: |
-          cd build/ios
+          cd ios
           xcodebuild \
             -project game.xcodeproj \
             -scheme "game" \
@@ -134,11 +65,11 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            GENERATE_INFOPLIST_FILE=YES
+            -allowProvisioningUpdates=NO
 
-      # 5. Upload Artifact
+      # 7. Upload the final .app as a zip
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-unsigned-ipa
-          path: build/ios/game-unsigned.ipa
+          name: Paper-Lily-iOS-Build
+          path: ios/build/Release-iphoneos/game.app
