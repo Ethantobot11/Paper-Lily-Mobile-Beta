@@ -57,15 +57,6 @@ jobs:
           # Path for Standard (This is where your log said it is looking)
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
-
-      - name: Export Xcode Project
-        run: |
-          mkdir -p build/ios
-          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
-          
-          # Injection: This turns the standard export into a C# game
-          mkdir -p build/ios/data/managed
-          cp .mono/assemblies/Release/*.dll build/ios/data/managed/
           
       # 3. Manually Compile C# Solution via MSBuild
       - name: Build C# Project
@@ -74,18 +65,26 @@ jobs:
           dotnet build Lacie_Engine.csproj -c Release
 
       # 4. Export via Standard Godot + Manual Assembly Injection
+      # 4. Export via Standard Godot + Semicolon Fix + Assembly Injection
       - name: Export Xcode Project
         run: |
           mkdir -p build/ios
           
-          # We use the STANDARD Godot.app here. 
-          # It won't crash because it doesn't look for Mono during initialization.
-          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
+          # 1. Run the export (this creates the 'damaged' file)
+          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj || true
           
-          # Now, we MANUALLY inject the Mono flavor into the standard export.
-          # This folder is where Godot 3.5.x C# games store their logic.
-          mkdir -p build/ios/data/managed
-          cp -r .mono/assemblies/Release/*.dll build/ios/data/managed/
+          # 2. THE FIX: Repair the broken pbxproj file
+          # We search for the common 'broken' line patterns Godot 3.5 creates when confused by Mono
+          # and force a semicolon and closing bracket where they belong.
+          sed -i '' 's/path = "data.pck"/path = "data.pck";/g' build/ios/game.xcodeproj/project.pbxproj
+          sed -i '' 's/name = "data.pck"/name = "data.pck";/g' build/ios/game.xcodeproj/project.pbxproj
+          
+          # 3. MANUALLY inject your pre-compiled DLLs
+          mkdir -p build/ios/game/data/managed
+          cp .mono/assemblies/Release/*.dll build/ios/game/data/managed/
+
+          # 4. Verify the project is readable now (Optional but helpful)
+          grep -C 5 "data.pck" build/ios/game.xcodeproj/project.pbxproj
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
