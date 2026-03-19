@@ -94,17 +94,25 @@ jobs:
         run: |
           PBXPROJ="build/ios/game.xcodeproj/project.pbxproj"
           
-          # Fix the Launch Screen line
+          # 1. Fix the Launch Screen line (Adding missing name/comment)
           sed -i '' 's/90DD2D9D24B36E8000717FE1 =/90DD2D9D24B36E8000717FE1 \/* Launch Screen.storyboard *\/ =/g' "$PBXPROJ"
           
-          # Fix the game.pck line (handling tabs/spaces)
+          # 2. Fix the game.pck line (Adding missing semicolon)
           sed -i '' 's/path = "game.pck"/path = "game.pck";/g' "$PBXPROJ"
-          
-          # Fix the missing semicolons at the end of PBXFileReference lines
+
+          # 3. Fix the 'en' localization line (Adding missing semicolon)
+          sed -i '' 's/path = en.lproj\/InfoPlist.strings/path = en.lproj\/InfoPlist.strings;/g' "$PBXPROJ"
+
+          # 4. GLOBAL FIX: Ensure every PBXFileReference line ends with };
+          # This catches any other lines Godot might have truncated.
           sed -i '' 's/sourceTree = "<group>"; }/sourceTree = "<group>"; };/g' "$PBXPROJ"
           
-          # Remove any potential double semicolons created by the above
+          # 5. Remove any double semicolons we might have accidentally created
           sed -i '' 's/};;/};/g' "$PBXPROJ"
+          sed -i '' 's/;;/;/g' "$PBXPROJ"
+
+          echo "Validation: Checking problematic lines..."
+          grep -E "game.pck|90DD2D9D24B36E8000717FE1|en" "$PBXPROJ"
 
       - name: Upload Corrupted Project for Inspection
         if: failure()  # This ensures it only runs if the previous step failed
@@ -116,10 +124,7 @@ jobs:
 
       - name: Build Xcode Project (Unsigned)
         run: |
-          # Move into the export directory
           cd build/ios
-          
-          # Run xcodebuild on the local directory
           xcodebuild \
             -project game.xcodeproj \
             -scheme "game" \
@@ -128,7 +133,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            GENERATE_INFOPLIST_FILE=YES
 
       # 5. Upload Artifact
       - name: Upload Artifact
