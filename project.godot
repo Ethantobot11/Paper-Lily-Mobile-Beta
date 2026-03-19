@@ -125,6 +125,10 @@ ui_end={
 "events": [  ]
 }
 
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
 [lacie_engine]
 
 core/game_name="Paper Lily Chapter 1"
@@ -226,14 +230,8 @@ common/physics_jitter_fix=0.0
 
 [rendering]
 
-quality/2d/use_pixel_snap=true
-vram_compression/import_etc2=true
-gles3/shaders/shader_compilation_mode=1
-batching/options/use_batching=true
-batching/options/use_batching_in_editor=true
 quality/intended_usage/framebuffer_allocation=0
 quality/intended_usage/framebuffer_allocation.mobile=0
-threads/thread_model=1
 quality/directional_shadow/size=512
 quality/directional_shadow/size.mobile=512
 quality/shadow_atlas/size=512
@@ -247,15 +245,9 @@ quality/reflections/texture_array_reflections=false
 quality/reflections/high_quality_ggx=false
 quality/depth_prepass/enable=false
 batching/precision/uv_contract=true
+gles3/shaders/shader_compilation_mode=1
 gles3/shaders/shader_cache_size_mb=128
-gles3/shaders/shader_cache_size_mb.mobile=128
 cpu_lightmapper/quality/medium_quality_ray_count=64
 cpu_lightmapper/quality/high_quality_ray_count=64
 cpu_lightmapper/quality/ultra_quality_ray_count=64
 quality/2d/use_pixel_snap=false
-
-[input_devices]
-
-pointing/emulate_touch_from_mouse=true
-pointing/emulate_mouse_from_touch=true
-
