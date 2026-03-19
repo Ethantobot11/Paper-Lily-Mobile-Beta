@@ -52,7 +52,23 @@ jobs:
           mkdir -p ios/game/data/managed/
           cp .mono/assemblies/Release/*.dll ios/game/data/managed/
 
-      # 6. Build the IPA using your uploaded Xcode project
+      # 4. Generate the 415MB Pack file automatically
+      - name: Generate Fresh PCK
+        run: |
+          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export-pack "iOS" ios/game.pck
+
+      # 5. Fix the two typos in your PC-generated file
+      - name: Repair Xcode Project Syntax
+        run: |
+          PBXPROJ="ios/game.xcodeproj/project.pbxproj"
+          
+          # Fix the game.pck line (Add missing semicolon at the end)
+          sed -i '' 's/path = "game.pck"; sourceTree = "<group>"; }/path = "game.pck"; sourceTree = "<group>"; };/g' "$PBXPROJ"
+          
+          # Fix the Launch Screen line (Add name and missing semicolon)
+          sed -i '' 's/90DD2D9D24B36E8000717FE1 =/90DD2D9D24B36E8000717FE1 \/* Launch Screen.storyboard *\/ =/g' "$PBXPROJ"
+          sed -i '' 's/path = "Launch Screen.storyboard"; sourceTree = "<group>"; }/path = "Launch Screen.storyboard"; sourceTree = "<group>"; };/g' "$PBXPROJ"
+
       - name: Build Xcode Project (Unsigned)
         run: |
           cd ios
@@ -64,8 +80,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            -allowProvisioningUpdates=NO
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
 
       # 7. Upload the final .app as a zip
       - name: Upload Artifact
