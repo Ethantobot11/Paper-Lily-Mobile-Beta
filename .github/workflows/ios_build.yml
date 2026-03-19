@@ -39,31 +39,31 @@ jobs:
         run: |
           echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
 
-      # 2. Setup STANDARD Godot (To avoid the Mono crash)
-      - name: Setup Standard Godot & Templates
+      # 2. Setup Godot & Mirror Templates to both Standard and Mono paths
+      - name: Setup Godot & Templates
         run: |
-          # Download STANDARD Engine (Non-Mono) - Direct Link
+          # Download Standard Godot
           curl -L -o Godot_standard_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip"
           unzip -q -o Godot_standard_osx.zip
           
-          # Download Mono Templates (Required for the iOS binary logic)
+          # Download Mono Templates (They work for both if placed correctly)
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
           
+          # Path for Mono (just in case)
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-          mv /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          
+          # Path for Standard (This is where your log said it is looking)
+          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
+          cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
 
-      # 4. Export via Standard Godot + Manual Assembly Injection
       - name: Export Xcode Project
         run: |
           mkdir -p build/ios
-          
-          # Use the Standard Godot binary. 
-          # It won't crash because it doesn't have the Mono initialization bug.
           ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export "iOS" build/ios/game.xcodeproj
           
-          # MANUALLY inject your pre-compiled DLLs from your repo
-          # This makes the "Standard" export work as a "Mono" game.
+          # Injection: This turns the standard export into a C# game
           mkdir -p build/ios/data/managed
           cp .mono/assemblies/Release/*.dll build/ios/data/managed/
           
