@@ -50,7 +50,7 @@ jobs:
       # 4. Generate the 415MB Pack file automatically
       - name: Generate Fresh PCK
         run: |
-          ./Godot.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export-pack "iOS" ios/game.pck
+          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export-pack "iOS" ios/game.pck
 
       - name: Repair Xcode Project Syntax
         run: |
@@ -87,4 +87,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Paper-Lily-iOS-Build
-          path: ios/build/Release-iphoneos/game.app
+          path: ios/build/Release-iphoneos/game.ipa
