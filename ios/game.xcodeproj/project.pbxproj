@@ -47,7 +47,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DEADBEEF2F582BE20003B888 /* game.xcframework */,	
+				DEADBEEF2F582BE20003B888 /* game.xcframework */
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
