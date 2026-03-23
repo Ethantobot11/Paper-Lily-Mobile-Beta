@@ -38,6 +38,22 @@ jobs:
         with:
           dotnet-version: '6.0.428'
 
+      - name: Sanitize project.godot
+        run: |
+          # Remove editor-only settings that might confuse the headless exporter
+          sed -i '' '/\[editor\]/d' project.godot
+          sed -i '' '/script_templates_search_path/d' project.godot
+          
+          # Force GLES2 for the exporter if GLES3 is causing driver issues on the runner
+          # (Sometimes the software renderer on Mac runners hates GLES3)
+          sed -i '' 's/quality\/driver\/driver_name="GLES3"/quality\/driver\/driver_name="GLES2"/g' project.godot
+          
+          # Fix the double mono entry
+          sed -i '' '/unhandled_exception_policy=1/d' project.godot
+          echo '[mono]' >> project.godot
+          echo 'project/assembly_name="Lacie_Engine"' >> project.godot
+          echo 'runtime/unhandled_exception_policy=1' >> project.godot
+
       # 1. Download and Prepare Godot
       - name: Setup Godot Mono & Templates
         run: |
