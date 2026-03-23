@@ -6,12 +6,17 @@ on:
 
 jobs:
   export-ios:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           lfs: false # We don't need LFS if the .pck is gone
+
+      - name: Force Xcode 15.4
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+          xcodebuild -version
 
       # 1. Setup Mono for the C# Logic
       - name: Install Mono & .NET
