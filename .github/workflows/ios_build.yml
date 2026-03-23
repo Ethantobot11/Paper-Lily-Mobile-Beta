@@ -57,6 +57,13 @@ jobs:
         run: |
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export-pack "iOS" ios/game.pck
 
+      - name: Fix Windows Encoding for Mac
+        run: |
+              iconv -f utf-8 -t utf-8 ios/game.xcodeproj/project.pbxproj > ios/game.xcodeproj/project.pbxproj.tmp
+              mv ios/game.xcodeproj/project.pbxproj.tmp ios/game.xcodeproj/project.pbxproj
+    
+              head -n 1 ios/game.xcodeproj/project.pbxproj
+
       - name: Repair Xcode Project Syntax
         run: |
           PBXPROJ="ios/game.xcodeproj/project.pbxproj"
