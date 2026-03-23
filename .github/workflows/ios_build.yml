@@ -1,5 +1,4 @@
 name: "Godot iOS Build (Unsigned)"
-
 on:
   workflow_dispatch:
   workflow_call:
@@ -11,89 +10,73 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          lfs: false # We don't need LFS if the .pck is gone
+          lfs: false
+          fetch-depth: 0
 
       - name: Force Xcode 15.4
         run: |
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      # 1. Setup Mono for the C# Logic
-      - name: Install Mono & .NET
-        run: |
-          brew install mono
-          echo '{"sdk": {"version": "6.0.428", "rollForward": "latestMinor"}}' > global.json
-
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0.428'
 
-      # 2. Setup Godot (Standard version to avoid Mono initialization crash)
-      - name: Setup Godot & Templates
+      # 1. Download and Rename Godot to match your .csproj HintPath
+      - name: Setup Godot Mono & Templates
         run: |
-          curl -L -o Godot_standard_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
-          unzip -q -o Godot_standard_osx.zip
+          # Download Mono version for macOS
+          curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
+          unzip -q -o Godot_mono_osx.zip
           
+          # The zip contains "Godot.app". Rename it to "Godot_mono.app" as required by your csproj
+          mv Godot.app Godot_mono.app
+          
+          # Setup Templates
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
-          
-          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
-          cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
+          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      - name: Prepare Godot for CSProj
-        run: |
-          mv Godot_v3.5.3-stable_mono_osx.64.zip_extracted_folder/Godot.app ./Godot_mono.app
-
-      # 2. Force Godot to link its libraries for Mac
-      - name: Godot Mono Linker
-        run: |
-          # Use the path to the binary inside the App bundle
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --build-solutions --quit || true
-
-      # 3. Build the C# DLLs
+      # 2. Sanitize and Build C#
       - name: Build C# Project
         run: |
+          # Remove Windows-specific HintPaths if they exist
+          sed -i '' 's|<HintPath>C:.*\\|<HintPath>|g' "Lacie_Engine.csproj"
+          
+          # Restore and Build specifically for iPhone to skip Steamworks
+          dotnet restore "Lacie_Engine.csproj"
           dotnet build "Lacie_Engine.csproj" -c Release /p:GodotTargetPlatform=iphone
 
-      - name: Generate Mono Glue
-        run: godot --headless --build-solutions --quit
-
-      # 5. Inject the latest C# assemblies into your pre-built folder
-      - name: Inject C# Assemblies
+      # 3. Generate Godot Metadata (Linking GodotSharp)
+      - name: Godot Mono Linker
         run: |
-          mkdir -p ios/game/data/managed/
-          cp .mono/assemblies/Release/*.dll ios/game/data/managed/
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --build-solutions --quit || true
 
-      # 4. Generate the 415MB Pack file automatically
+      # 4. Export the Data Pack (.pck)
       - name: Generate Fresh PCK
         run: |
+          mkdir -p ios
           ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export-pack "iOS" ios/game.pck
 
-      - name: Fix Windows Encoding for Mac
-        run: |
-              iconv -f utf-8 -t utf-8 ios/game.xcodeproj/project.pbxproj > ios/game.xcodeproj/project.pbxproj.tmp
-              mv ios/game.xcodeproj/project.pbxproj.tmp ios/game.xcodeproj/project.pbxproj
-    
-              head -n 1 ios/game.xcodeproj/project.pbxproj
-
+      # 5. Fix Xcode Project file (The "Damaged" error fix)
       - name: Repair Xcode Project Syntax
         run: |
           PBXPROJ="ios/game.xcodeproj/project.pbxproj"
           
-          # 1. Ensure the "Magic Header" is at the absolute start of the file
-          # This tells Xcode: "I am an UTF-8 Project file, NOT a JSON file"
-          echo "// !\$*UTF8*\$!" > "$PBXPROJ.new"
-          cat "$PBXPROJ" >> "$PBXPROJ.new"
-          mv "$PBXPROJ.new" "$PBXPROJ"
-
-          # 2. Fix the game.pck line (using a safer sed pattern for Mac)
-          sed -i '' 's/path = "game.pck"; sourceTree = "<group>"; }/path = "game.pck"; sourceTree = "<group>"; };/g' "$PBXPROJ"
+          # Stripping Windows Line Endings (CRLF to LF)
+          tr -d '\r' < "$PBXPROJ" > "$PBXPROJ.tmp"
           
-          # 3. Fix the Launch Screen lines
-          sed -i '' 's/90DD2D9D24B36E8000717FE1 =/90DD2D9D24B36E8000717FE1 \/* Launch Screen.storyboard *\/ =/g' "$PBXPROJ"
+          # Ensure UTF8 Header is present and clean
+          echo "// !\$*UTF8*\$!" > "$PBXPROJ"
+          cat "$PBXPROJ.tmp" >> "$PBXPROJ"
+          
+          # Final Syntax Fixes for Xcode 15+
+          sed -i '' 's/path = "game.pck"; sourceTree = "<group>"; }/path = "game.pck"; sourceTree = "<group>"; };/g' "$PBXPROJ"
           sed -i '' 's/path = "Launch Screen.storyboard"; sourceTree = "<group>"; }/path = "Launch Screen.storyboard"; sourceTree = "<group>"; };/g' "$PBXPROJ"
-     
+
+      # 6. Build the actual iOS App
       - name: Build Xcode Project (Unsigned)
         run: |
           cd ios
@@ -107,7 +90,6 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
 
-     # 7. Upload the final .app as a zip
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
