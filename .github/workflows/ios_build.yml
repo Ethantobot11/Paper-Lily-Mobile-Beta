@@ -46,6 +46,9 @@ jobs:
         run: |
           dotnet build Lacie_Engine.csproj -c Release
 
+      - name: Generate Mono Glue
+        run: godot --headless --build-solutions --quit
+
       # 5. Inject the latest C# assemblies into your pre-built folder
       - name: Inject C# Assemblies
         run: |
