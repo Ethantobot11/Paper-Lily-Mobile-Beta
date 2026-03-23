@@ -18,6 +18,21 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
+      - name: Hard Reset Project Metadata
+        run: |
+          # Delete any leftover Windows build artifacts
+          rm -rf .mono/
+          rm -rf bin/
+          rm -rf obj/
+          
+          # Create a fresh metadata structure for Mac
+          mkdir -p .mono/metadata
+          
+          # Force the HintPath to point ONLY to the Mac App we downloaded
+          # This overwrites whatever was in your csproj originally
+          sed -i '' 's|<Reference Include="GodotSharp">.*</Reference>|<Reference Include="GodotSharp"><HintPath>$(ProjectDir)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/GodotSharp.dll</HintPath></Reference>|g' "Lacie_Engine.csproj"
+          sed -i '' 's|<Reference Include="GodotSharpEditor">.*</Reference>|<Reference Include="GodotSharpEditor"><HintPath>$(ProjectDir)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/GodotSharpEditor.dll</HintPath></Reference>|g' "Lacie_Engine.csproj"
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -48,7 +63,7 @@ jobs:
           sed -i '' 's|<HintPath>C:.*\\|<HintPath>|g' "Lacie_Engine.csproj"
           
           # Restore and Build specifically for iPhone to skip Steamworks
-          dotnet restore "Lacie_Engine.csproj"
+          dotnet restore "Lacie_Engine.csproj" --force
           dotnet build "Lacie_Engine.csproj" -c Release /p:GodotTargetPlatform=iphone
 
       # 3. Generate Godot Metadata (Linking GodotSharp)
