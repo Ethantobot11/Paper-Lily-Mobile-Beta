@@ -23,15 +23,17 @@ jobs:
         with:
           dotnet-version: '6.0.428'
 
-      # 1. Download and Rename Godot to match your .csproj HintPath
+      # 1. Download and Prepare Godot
       - name: Setup Godot Mono & Templates
         run: |
           # Download Mono version for macOS
           curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot_mono_osx.zip
           
-          # The zip contains "Godot.app". Rename it to "Godot_mono.app" as required by your csproj
-          mv Godot.app Godot_mono.app
+          # Check if it's named Godot.app or Godot_mono.app and ensure it's Godot_mono.app
+          if [ -d "Godot.app" ]; then
+            mv Godot.app Godot_mono.app
+          fi
           
           # Setup Templates
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
