@@ -41,10 +41,20 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable/"
 
+      - name: Prepare Godot for CSProj
+        run: |
+          mv Godot_v3.5.3-stable_mono_osx.64.zip_extracted_folder/Godot.app ./Godot_mono.app
+
+      # 2. Force Godot to link its libraries for Mac
+      - name: Godot Mono Linker
+        run: |
+          # Use the path to the binary inside the App bundle
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --build-solutions --quit || true
+
       # 3. Build the C# DLLs
       - name: Build C# Project
         run: |
-          dotnet build Lacie_Engine.csproj -c Release
+          dotnet build "Lacie_Engine.csproj" -c Release /p:GodotTargetPlatform=iphone
 
       - name: Generate Mono Glue
         run: godot --headless --build-solutions --quit
