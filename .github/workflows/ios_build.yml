@@ -75,12 +75,13 @@ jobs:
       # 2. Sanitize and Build C#
       - name: Build C# Project
         run: |
-          # Remove Windows-specific HintPaths if they exist
-          sed -i '' 's|<HintPath>C:.*\\|<HintPath>|g' "Lacie_Engine.csproj"
-          
-          # Restore and Build specifically for iPhone to skip Steamworks
-          dotnet restore "Lacie_Engine.csproj" --force
-          dotnet build "Lacie_Engine.csproj" -c Release /p:GodotTargetPlatform=iphone
+          # Ensure we are using the correct target for Godot's AOT compiler
+          dotnet restore "Lacie_Engine.csproj"
+          dotnet build "Lacie_Engine.csproj" \
+            -c Release \
+            /p:Configuration=Release \
+            /p:Platform=iPhone \
+            /p:GodotTargetPlatform=ios
 
       # 5. Fresh Export (This replaces the manual "Repair" step)
       - name: Godot Headless Export to iOS
