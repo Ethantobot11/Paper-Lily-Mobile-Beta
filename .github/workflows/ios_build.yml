@@ -82,26 +82,27 @@ jobs:
           dotnet restore "Lacie_Engine.csproj" --force
           dotnet build "Lacie_Engine.csproj" -c Release /p:GodotTargetPlatform=iphone
 
-      # 3. Generate Godot Metadata (Linking GodotSharp)
-      - name: Godot Mono Linker
+      # 5. Fresh Export (This replaces the manual "Repair" step)
+      - name: Godot Headless Export to iOS
         run: |
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --build-solutions --quit || true
-
-      # 5. Fix Xcode Project file (The "Damaged" error fix)
-      - name: Repair Xcode Project Syntax
+          mkdir -p ios/
+          # This command tells Godot to generate the Xcode project fresh on the Mac
+          # "iOS" must match the name of your Export Preset in Godot
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" ios/game.xcodeproj
+          
+      # 6. Build the actual iOS App
+      - name: Build Xcode Project (Unsigned)
         run: |
-          PBXPROJ="ios/game.xcodeproj/project.pbxproj"
-          
-          # Stripping Windows Line Endings (CRLF to LF)
-          tr -d '\r' < "$PBXPROJ" > "$PBXPROJ.tmp"
-          
-          # Ensure UTF8 Header is present and clean
-          echo "// !\$*UTF8*\$!" > "$PBXPROJ"
-          cat "$PBXPROJ.tmp" >> "$PBXPROJ"
-          
-          # Final Syntax Fixes for Xcode 15+
-          sed -i '' 's/path = "game.pck"; sourceTree = "<group>"; }/path = "game.pck"; sourceTree = "<group>"; };/g' "$PBXPROJ"
-          sed -i '' 's/path = "Launch Screen.storyboard"; sourceTree = "<group>"; }/path = "Launch Screen.storyboard"; sourceTree = "<group>"; };/g' "$PBXPROJ"
+          # No need to cd ios, Godot 3.5 creates the folder structure
+          xcodebuild \
+            -project ios/game.xcodeproj \
+            -scheme "game" \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
 
       # 6. Build the actual iOS App
       - name: Build Xcode Project (Unsigned)
