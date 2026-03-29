@@ -87,12 +87,6 @@ jobs:
         run: |
           ./Godot_mono.app/Contents/MacOS/Godot --headless --build-solutions --quit || true
 
-      # 4. Export the Data Pack (.pck)
-      - name: Generate Fresh PCK
-        run: |
-          mkdir -p ios
-          ./Godot_mono.app/Contents/MacOS/Godot --no-window --audio-driver Dummy --export-pack "iOS" ios/game.pck
-
       # 5. Fix Xcode Project file (The "Damaged" error fix)
       - name: Repair Xcode Project Syntax
         run: |
