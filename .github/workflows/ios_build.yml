@@ -74,25 +74,28 @@ jobs:
 
       - name: Force .NET 6.0 and Build
         run: |
-          # 1. Force the current directory to use .NET 6.0
           echo '{"sdk": {"version": "6.0.428"}}' > global.json
           
-          # 2. Verify the version (Should output 6.0.428)
-          dotnet --version 
-          
-          # 3. Define where the Godot C# assemblies are
-          # This assumes Godot_mono.app is in your current working directory
+          # 1. Path to the DLLs inside the Mac App
+          # Verify this path matches your unzip location!
           export GODOT_DLL_PATH="$(pwd)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
           
-          # 4. Restore and Build with explicit ReferencePath
+          # 2. STRIP HintPaths from the .csproj
+          # This removes the hardcoded Windows paths so MSBuild is FORCED to use our ReferencePath
+          sed -i '' 's|<HintPath>.*</HintPath>||g' "Lacie_Engine.csproj"
+          
+          # 3. Restore
           dotnet restore "Lacie_Engine.csproj"
           
+          # 4. Build
+          # We pass ReferencePath AND AdditionalLibPaths just to be safe
           dotnet build "Lacie_Engine.csproj" \
             -c Release \
             /p:Configuration=Release \
             /p:Platform=iPhone \
             /p:GodotTargetPlatform=ios \
-            /p:ReferencePath="$GODOT_DLL_PATH"
+            /p:ReferencePath="$GODOT_DLL_PATH" \
+            /p:AdditionalLibPaths="$GODOT_DLL_PATH"
 
       # 5. Fresh Export (This replaces the manual "Repair" step)
       - name: Godot Headless Export to iOS
