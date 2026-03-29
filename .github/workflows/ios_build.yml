@@ -72,16 +72,27 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      # 2. Sanitize and Build C#
-      - name: Build C# Project
+      - name: Force .NET 6.0 and Build
         run: |
-          # Ensure we are using the correct target for Godot's AOT compiler
+          # 1. Force the current directory to use .NET 6.0
+          echo '{"sdk": {"version": "6.0.428"}}' > global.json
+          
+          # 2. Verify the version (Should output 6.0.428)
+          dotnet --version 
+          
+          # 3. Define where the Godot C# assemblies are
+          # This assumes Godot_mono.app is in your current working directory
+          export GODOT_DLL_PATH="$(pwd)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
+          
+          # 4. Restore and Build with explicit ReferencePath
           dotnet restore "Lacie_Engine.csproj"
+          
           dotnet build "Lacie_Engine.csproj" \
             -c Release \
             /p:Configuration=Release \
             /p:Platform=iPhone \
-            /p:GodotTargetPlatform=ios
+            /p:GodotTargetPlatform=ios \
+            /p:ReferencePath="$GODOT_DLL_PATH"
 
       # 5. Fresh Export (This replaces the manual "Repair" step)
       - name: Godot Headless Export to iOS
