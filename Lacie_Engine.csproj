@@ -1,4 +1,4 @@
-<Project Sdk="Godot.NET.Sdk/3.3.0">
+<Project Sdk="Godot.NET.Sdk/3.3.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <AssemblyName>Lacie_Engine</AssemblyName>
     <EnableDynamicLoading>True</EnableDynamicLoading>
@@ -16,14 +16,16 @@
     <Reference Include="GodotSharpEditor" Condition="'$(GodotTargetPlatform)' == 'iphone'">
       <HintPath>$(ProjectDir)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/GodotSharpEditor.dll</HintPath>
     </Reference>
+    
     <Reference Include="Karambolo.PO">
-      <HintPath>_mono_referenced_assemblies/Karambolo.PO.dll</HintPath>
+      <HintPath>$(ProjectDir)/_mono_referenced_assemblies/Karambolo.PO.dll</HintPath>
     </Reference>
     <Reference Include="Steamworks.NET" Condition="'$(GodotTargetPlatform)' != 'iphone'">
-      <HintPath>_mono_referenced_assemblies/Steamworks.NET.dll</HintPath>
+      <HintPath>$(ProjectDir)/_mono_referenced_assemblies/Steamworks.NET.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>_mono_referenced_assemblies/Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(ProjectDir)/_mono_referenced_assemblies/Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
 
