@@ -22,7 +22,7 @@ jobs:
       # Godot 3.5 Mono REQUIRES the legacy Mono Framework to load the "Core API"
       - name: Install Legacy Mono Framework
         run: |
-          brew install --cask mono-pkg
+          brew install --cask mono-mdk
           # Add Mono to the path so Godot can find the 'mono' binary
           echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
 
@@ -63,7 +63,15 @@ jobs:
       - name: Godot Export
         run: |
           mkdir -p ios
-          # Export to .xcodeproj (The --no-build is vital for Mono on iOS runners)
+          
+          # Use the Mono MDK we just installed to help Godot load its Core API
+          export MONO_PATH="/Library/Frameworks/Mono.framework/Versions/Current/lib/mono/4.5"
+          export MONO_GAC_PREFIX="/Library/Frameworks/Mono.framework/Versions/Current"
+          
+          # Force export mode 0 (Text/Compiled)
+          sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
+          
+          # Export to Xcode project
           ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.xcodeproj
 
       - name: Build Xcode Project (Unsigned)
