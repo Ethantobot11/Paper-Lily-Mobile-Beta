@@ -107,14 +107,13 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
+          # The path where your .a library files live
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
-          # Find the UUID from the profile we installed earlier
-          export PROV_UUID=$(grep -aA1 "UUID" ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | grep -oE '[-A-Z0-9]{36}' | head -n 1)
-          echo "Found Provisioning UUID: $PROV_UUID"
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
+          # Profile Info
+          PROV_UUID="243c5777-85f5-48b5-8d71-2378da8f1ab7"
+          TEAM_ID="Q6SJUT5K5D"
+          BUNDLE_ID="com.xl.MyXL.Giant-staging"
 
           xcodebuild archive \
             -project ios/game.xcodeproj \
@@ -127,8 +126,10 @@ jobs:
             CODE_SIGN_IDENTITY="iPhone Distribution" \
             PROVISIONING_PROFILE=$PROV_UUID \
             PROVISIONING_PROFILE_SPECIFIER=$PROV_UUID \
-            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
-            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH"
+            DEVELOPMENT_TEAM=$TEAM_ID \
+            PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
+            LIBRARY_SEARCH_PATHS="\"$TEMPLATE_PATH\"" \
+            -allowProvisioningUpdates
 
       - name: Package IPA
         run: |
