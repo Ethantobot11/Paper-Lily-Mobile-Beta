@@ -92,9 +92,7 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
-          
-          # Notice we use 'archive' and removed the 'CODE_SIGNING_ALLOWED=NO'
+          # Use the secret here
           xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
@@ -102,7 +100,10 @@ jobs:
             -sdk iphoneos \
             -archivePath ios/game.xcarchive \
             -destination 'generic/platform=iOS' \
-            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH"
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            PROVISIONING_PROFILE=$PROV_UUID \
+            PROVISIONING_PROFILE_SPECIFIER=$PROV_UUID
 
       - name: Package IPA
         run: |
