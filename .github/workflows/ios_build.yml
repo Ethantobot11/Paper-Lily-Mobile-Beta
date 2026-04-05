@@ -108,19 +108,11 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # 1. This is where your 'iphone-mono-libs' ended up after the Setup step
+          # 1. Path to the folder containing all .xcframework folders
           LIBS_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/iphone-mono-libs"
           
-          # 2. We loop through every .xcframework folder from your screenshot 
-          # and add the '/ios-arm64' subfolder to the search path.
-          SEARCH_PATHS=""
-          for framework in "$LIBS_DIR"/*.xcframework; do
-            if [ -d "$framework/ios-arm64" ]; then
-              SEARCH_PATHS="$SEARCH_PATHS \"$framework/ios-arm64\""
-            fi
-          done
-
-          # 3. Build using the exact profile and path info we discovered
+          # 2. Manual Build
+          # Note: We use FRAMEWORK_SEARCH_PATHS and -framework flags
           xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
@@ -133,9 +125,10 @@ jobs:
             PROVISIONING_PROFILE="243c5777-85f5-48b5-8d71-2378da8f1ab7" \
             DEVELOPMENT_TEAM="Q6SJUT5K5D" \
             PRODUCT_BUNDLE_IDENTIFIER="com.xl.MyXL.Giant-staging" \
-            LIBRARY_SEARCH_PATHS="$SEARCH_PATHS" \
-            OTHER_LDFLAGS="-lmonosgen-2.0 -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log" \
+            FRAMEWORK_SEARCH_PATHS="\"$LIBS_DIR\"" \
+            OTHER_LDFLAGS="-framework libmonosgen-2.0 -framework libmono-native -framework libmono-ee-interp -framework libmono-icall-table -framework libmono-ilgen -framework libmono-profiler-log" \
             -allowProvisioningUpdates
+            
       - name: Package IPA
         run: |
           mkdir -p Payload
