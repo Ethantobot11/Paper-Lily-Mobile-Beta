@@ -18,12 +18,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      # --- CRITICAL MISSING STEP ---
-      # Godot 3.5 Mono REQUIRES the legacy Mono Framework to load the "Core API"
       - name: Install Legacy Mono Framework
         run: |
           brew install --cask mono-mdk
-          # Add Mono to the path so Godot can find the 'mono' binary
           echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
 
       - name: Setup .NET SDK
@@ -33,69 +30,49 @@ jobs:
 
       - name: Setup Godot Mono & Templates
         run: |
-          # 1. Download Godot Engine
           curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot_mono_osx.zip
-          
-          # The zip usually contains "Godot_mono.app" (Universal version)
-          # We make sure it's at the root
           mv "Godot_mono.app" ./Godot_mono.app || true
           chmod +x Godot_mono.app/Contents/MacOS/Godot
           
-          # 2. Setup Templates
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
           mkdir -p /tmp/godot_templates
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
-          
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-          # The templates inside the zip are usually in a 'templates' subfolder
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
       - name: Prepare Project for Export
         run: |
-          # Force the preset to mode 0 (Text/Compiled) to prevent AOT crash
+          # Satisfy Godot's Team ID check via CLI injection
+          sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="1234567890"/g' export_presets.cfg
           sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
-          
-          # Hard Reset Metadata to ensure a clean Mac environment
           rm -rf .mono/ bin/ obj/
-          mkdir -p .mono/metadata
 
       - name: Godot Export (The Ghost Method)
         run: |
           mkdir -p ios
-          
-          # 1. Back up the real files
           cp Lacie_Engine.csproj Lacie_Engine.csproj.bak
           cp project.godot project.godot.bak
           
-          # 2. Create a 'Legacy' fake project file that Godot won't choke on
-          # This is the old format from 2003 that this specific Godot version wants
-          echo '<?xml version="1.0" encoding="utf-8"?>
-          <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-            <PropertyGroup>
-              <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
-              <OutputType>Library</OutputType>
-              <OutputPath>bin\Release</OutputPath>
-              <AssemblyName>Lacie_Engine</AssemblyName>
-              <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-            </PropertyGroup>
-          </Project>' > Lacie_Engine.csproj
+          # Create Ghost Project for Headless Godot
+          echo '<?xml version="1.0" encoding="utf-8"?><Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup><ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid><OutputType>Library</OutputType><OutputPath>bin\Release</OutputPath><AssemblyName>Lacie_Engine</AssemblyName><TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion></PropertyGroup></Project>' > Lacie_Engine.csproj
 
-          # 3. Strip [mono] from project.godot so it doesn't try to generate metadata
           sed -i '' '/\[mono\]/d' project.godot
-          sed -i '' '/project\/assembly_name/d' project.godot
           
-          # 4. Export (This will now only export assets/scenes)
-          # In your GitHub Action Godot Export step:
+          # EXPORT ONLY ASSETS
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" ios/game.xcodeproj --no-build
           
-          # 5. RESTORE everything so Xcode has the real code to build
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv project.godot.bak project.godot
 
+      - name: Compile C# for iOS
+        run: |
+          # This compiles your code into the 'ios' folder where Xcode expects it
+          dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:BuildProject=false
+
       - name: Build Xcode Project (Unsigned)
         run: |
-          # Define where the templates were installed
+          # Path to Godot's static libraries
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
           xcodebuild \
@@ -109,13 +86,12 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH" \
-            OTHER_LDFLAGS="-framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreLayout -framework CoreMedia -framework CoreMotion -framework CoreVideo -framework Foundation -framework GameController -framework MediaPlayer -framework Metal -framework MetalKit -framework QuartzCore -framework UIKit -framework CloudKit -framework CoreLocation -lresolv -lz -lsqlite3 -lstdc++"
+            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH"
 
       - name: Package IPA
         run: |
-          # Xcode creates a .app, but GitHub users usually want a .ipa
           mkdir -p Payload
+          # If the path below is different, check the 'build' folder in artifacts
           cp -r build/Build/Products/Release-iphoneos/game.app Payload/
           zip -r Paper-Lily-iOS.ipa Payload
 
