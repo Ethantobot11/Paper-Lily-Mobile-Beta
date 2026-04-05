@@ -30,26 +30,30 @@ jobs:
 
       - name: Setup Godot Mono & Templates
         run: |
+          # 1. Download and Extract Editor
           curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot_mono_osx.zip
-          mv "Godot_mono.app" ./Godot_mono.app || true
-          chmod +x Godot_mono.app/Contents/MacOS/Godot
+          # Find the actual .app folder regardless of naming
+          GODOT_APP=$(find . -name "Godot_mono.app" -type d | head -n 1)
+          chmod +x "$GODOT_APP/Contents/MacOS/Godot"
           
+          # 2. Download and Extract Templates
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
           mkdir -p /tmp/godot_templates
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
-          mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-          cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
-
-          # This matches the path you want to use in the Build step
-          DEST_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/templates"
-          mkdir -p "$DEST_DIR"
           
-          # Move the unzipped templates into that nested 'templates' folder
-          cp -r /tmp/godot_templates/templates/* "$DEST_DIR/"
+          # 3. Define the final destination
+          FINAL_DEST="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          mkdir -p "$FINAL_DEST"
           
-          # VERIFY: If this command fails, the build will fail
-          ls "$DEST_DIR/iphone-mono-libs/libmonosgen-2.0.xcframework/ios-arm64/libmonosgen-2.0.a"
+          # 4. SURGICAL COPY: Find the 'templates' folder inside the zip and copy its CONTENTS
+          # This avoids the "templates/templates" nesting issue
+          CONTENTS_SOURCE=$(find /tmp/godot_templates -name "iphone-mono-libs" -type d -exec dirname {} \;)
+          cp -r "$CONTENTS_SOURCE"/* "$FINAL_DEST/"
+          
+          # 5. VERIFY: This will now print the path so we can see it in the logs
+          echo "Verified file location:"
+          find "$FINAL_DEST" -name "libmonosgen-2.0.a"
 
       # NEW STEP: Import your signing files from GitHub Secrets
       - name: Install Apple Certificate and Provisioning Profile
