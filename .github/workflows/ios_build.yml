@@ -122,14 +122,10 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          mkdir -p /tmp/libs
-          cp -r "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/iphone-mono-libs/"* /tmp/libs/
+          # Use the path we just verified in the Setup step
+          LIBS_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/iphone-mono-libs"
           
-          # Verify the .a files are in the new spot
-          ls -R /tmp/libs/
-          
-          # 2. We explicitly define the path to the .a file inside each xcframework
-          # Note: 'ios-arm64' is the folder for the real iPhone device
+          # Define paths (Notice I removed the extra "/templates/")
           MONO_LIB_PATH="$LIBS_DIR/libmonosgen-2.0.xcframework/ios-arm64"
           NATIVE_LIB_PATH="$LIBS_DIR/libmono-native.xcframework/ios-arm64"
           INTERP_LIB_PATH="$LIBS_DIR/libmono-ee-interp.xcframework/ios-arm64"
@@ -137,7 +133,6 @@ jobs:
           ILGEN_LIB_PATH="$LIBS_DIR/libmono-ilgen.xcframework/ios-arm64"
           PROFILER_LIB_PATH="$LIBS_DIR/libmono-profiler-log.xcframework/ios-arm64"
 
-          # 3. Build using these specific search paths
           xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
