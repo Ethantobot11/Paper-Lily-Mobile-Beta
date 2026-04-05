@@ -60,19 +60,37 @@ jobs:
           rm -rf .mono/ bin/ obj/
           mkdir -p .mono/metadata
 
-      - name: Godot Export
+      - name: Godot Export (The Ghost Method)
         run: |
           mkdir -p ios
           
-          # Use the Mono MDK we just installed to help Godot load its Core API
-          export MONO_PATH="/Library/Frameworks/Mono.framework/Versions/Current/lib/mono/4.5"
-          export MONO_GAC_PREFIX="/Library/Frameworks/Mono.framework/Versions/Current"
+          # 1. Back up the real files
+          cp Lacie_Engine.csproj Lacie_Engine.csproj.bak
+          cp project.godot project.godot.bak
           
-          # Force export mode 0 (Text/Compiled)
-          sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
+          # 2. Create a 'Legacy' fake project file that Godot won't choke on
+          # This is the old format from 2003 that this specific Godot version wants
+          echo '<?xml version="1.0" encoding="utf-8"?>
+          <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+            <PropertyGroup>
+              <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
+              <OutputType>Library</OutputType>
+              <OutputPath>bin\Release</OutputPath>
+              <AssemblyName>Lacie_Engine</AssemblyName>
+              <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+            </PropertyGroup>
+          </Project>' > Lacie_Engine.csproj
+
+          # 3. Strip [mono] from project.godot so it doesn't try to generate metadata
+          sed -i '' '/\[mono\]/d' project.godot
+          sed -i '' '/project\/assembly_name/d' project.godot
           
-          # Export to Xcode project
+          # 4. Export (This will now only export assets/scenes)
           ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.xcodeproj
+          
+          # 5. RESTORE everything so Xcode has the real code to build
+          mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
+          mv project.godot.bak project.godot
 
       - name: Build Xcode Project (Unsigned)
         run: |
