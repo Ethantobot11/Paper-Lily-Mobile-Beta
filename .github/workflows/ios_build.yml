@@ -82,8 +82,16 @@ jobs:
       - name: Godot Export
         run: |
           mkdir -p ios
-          # The --no-build flag is the key here
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.ipa
+          
+          # 1. Manually set the Framework path so Godot doesn't have to guess
+          # This points to the Mono version bundled with the dotnet SDK on the runner
+          export FrameworkPathOverride=$(dirname $(which dotnet))/../shared/Microsoft.NETCore.App/*
+          
+          # 2. Force the preset to mode 0 (Text/Compiled)
+          sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
+          
+          # 3. Run export with full logging to see exactly where it dies if this fails
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.ipa -v
           
       # 6. Build the actual iOS App
       - name: Build Xcode Project (Unsigned)
