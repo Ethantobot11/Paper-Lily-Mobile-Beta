@@ -83,6 +83,7 @@ jobs:
           # 3. Export to a DIRECTORY path.
           # THIS IS THE STEP THAT CREATES THE ios/game.xcodeproj FOLDER
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build || true
+          [ -d "ios/game.xcodeproj" ] && echo "Project folder created successfully!" || echo "Project folder MISSING!"
           
           # 4. FIX: If Godot created a .zip or .ipa by mistake, we ignore it.
           # We ensure the directory exists for the next steps.
@@ -107,14 +108,19 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # The path where your .a library files live
-          TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          # 1. This is where your 'iphone-mono-libs' ended up after the Setup step
+          LIBS_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/iphone-mono-libs"
           
-          # Profile Info
-          PROV_UUID="243c5777-85f5-48b5-8d71-2378da8f1ab7"
-          TEAM_ID="Q6SJUT5K5D"
-          BUNDLE_ID="com.xl.MyXL.Giant-staging"
+          # 2. We loop through every .xcframework folder from your screenshot 
+          # and add the '/ios-arm64' subfolder to the search path.
+          SEARCH_PATHS=""
+          for framework in "$LIBS_DIR"/*.xcframework; do
+            if [ -d "$framework/ios-arm64" ]; then
+              SEARCH_PATHS="$SEARCH_PATHS \"$framework/ios-arm64\""
+            fi
+          done
 
+          # 3. Build using the exact profile and path info we discovered
           xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
@@ -124,13 +130,12 @@ jobs:
             -destination 'generic/platform=iOS' \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution" \
-            PROVISIONING_PROFILE=$PROV_UUID \
-            PROVISIONING_PROFILE_SPECIFIER=$PROV_UUID \
-            DEVELOPMENT_TEAM=$TEAM_ID \
-            PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
-            LIBRARY_SEARCH_PATHS="\"$TEMPLATE_PATH\"" \
+            PROVISIONING_PROFILE="243c5777-85f5-48b5-8d71-2378da8f1ab7" \
+            DEVELOPMENT_TEAM="Q6SJUT5K5D" \
+            PRODUCT_BUNDLE_IDENTIFIER="com.xl.MyXL.Giant-staging" \
+            LIBRARY_SEARCH_PATHS="$SEARCH_PATHS" \
+            OTHER_LDFLAGS="-lmonosgen-2.0 -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log" \
             -allowProvisioningUpdates
-
       - name: Package IPA
         run: |
           mkdir -p Payload
