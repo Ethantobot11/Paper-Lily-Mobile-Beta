@@ -98,12 +98,11 @@ jobs:
             /p:AdditionalLibPaths="$GODOT_DLL_PATH"
 
       # 5. Fresh Export (This replaces the manual "Repair" step)
-      - name: Godot Headless Export to iOS
+      - name: Godot Export to iOS
         run: |
           mkdir -p ios/
-          # This command tells Godot to generate the Xcode project fresh on the Mac
-          # "iOS" must match the name of your Export Preset in Godot
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" ios/game.xcodeproj
+          # Using --no-window for Godot 3.5.3
+          ./Godot_mono.app/Contents/MacOS/Godot --no-window --export "iOS" ios/game.xcodeproj
           
       # 6. Build the actual iOS App
       - name: Build Xcode Project (Unsigned)
