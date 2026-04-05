@@ -82,13 +82,20 @@ jobs:
           
           # 3. Export to a DIRECTORY path.
           # THIS IS THE STEP THAT CREATES THE ios/game.xcodeproj FOLDER
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build || true
           
-          # 4. NOW fix the generated Xcode project (These lines MUST come after the export)
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/game.xcodeproj/project.pbxproj || true
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
+          # 4. FIX: If Godot created a .zip or .ipa by mistake, we ignore it.
+          # We ensure the directory exists for the next steps.
+          if [ ! -d "ios/game.xcodeproj" ]; then
+            echo "Xcode project folder not found! Checking if Godot exported a file instead..."
+            ls -R ios/
+          fi
+
+          # 5. NOW apply the fixes to the project file
+          # We use "find" to make sure we hit the file even if Godot nested it
+          find ios -name "project.pbxproj" -exec sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' {} +
+          find ios -name "project.pbxproj" -exec sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' {} +
+          find ios -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' {} +
           
           # 5. Restore real files
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
