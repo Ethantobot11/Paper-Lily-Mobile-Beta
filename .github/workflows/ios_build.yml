@@ -18,16 +18,6 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      - name: Install Legacy Mono Framework
-        run: |
-          brew install --cask mono-mdk
-          echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.428'
-
       - name: Setup Godot Mono & Templates
         run: |
           # 1. Editor
@@ -40,16 +30,32 @@ jobs:
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
           
           # 3. Destination: NO SPACES
-          # We use /tmp/mono_libs to avoid the "Application Support" space bug
           mkdir -p /tmp/mono_libs
           
-          # 4. Copy directly from where we found them in the logs
-          cp -r /tmp/godot_templates/templates/iphone-mono-libs/* /tmp/mono_libs/
+          # 4. POWER FIND: Search for the libs and copy them
+          # This finds the folder wherever it unzipped and copies the contents
+          SOURCE=$(find /tmp/godot_templates -name "iphone-mono-libs" -type d | head -n 1)
+          if [ -z "$SOURCE" ]; then
+            echo "!!! ERROR: iphone-mono-libs NOT FOUND IN ZIP !!!"
+            exit 1
+          fi
           
-          # 5. VERIFY: This MUST show the .a files now
-          echo "Checking /tmp/mono_libs..."
-          ls -R /tmp/mono_libs | grep "libmonosgen-2.0.a"
+          cp -v -r "$SOURCE/"* /tmp/mono_libs/
+          
+          # 5. VERIFY
+          echo "Listing /tmp/mono_libs to confirm success:"
+          ls /tmp/mono_libs
 
+      - name: Install Legacy Mono Framework
+        run: |
+          brew install --cask mono-mdk
+          echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.428'
+          
       # NEW STEP: Import your signing files from GitHub Secrets
       - name: Install Apple Certificate and Provisioning Profile
         env:
