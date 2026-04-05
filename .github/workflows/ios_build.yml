@@ -73,9 +73,8 @@ jobs:
           # This compiles your code into the 'ios' folder where Xcode expects it
           dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:BuildProject=false
 
-      - name: Build Xcode Project (Manual Linker Fix)
+      - name: Build Xcode Project (Unsigned)
         run: |
-          # We define the library path so the Linker (Ld) finds libgodot.a and libmonosgen.a
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
           xcodebuild build \
@@ -88,9 +87,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH" \
-            HEADER_SEARCH_PATHS="$TEMPLATE_PATH"
+            AD_HOC_CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH"
 
       - name: Package IPA
         run: |
