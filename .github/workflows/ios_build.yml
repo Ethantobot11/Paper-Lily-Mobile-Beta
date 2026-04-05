@@ -61,10 +61,16 @@ jobs:
           curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot_mono_osx.zip
           
-          # Check if it's named Godot.app or Godot_mono.app and ensure it's Godot_mono.app
+          # Ensure the folder is named Godot_mono.app
+          # The universal zip usually contains "Godot_mono.app" 
+          # but we check for "Godot.app" just in case.
           if [ -d "Godot.app" ]; then
             mv Godot.app Godot_mono.app
           fi
+
+          # CRITICAL: Grant execution permissions to the inner Godot binary
+          # Without this, the 'Godot Headless Export' step will fail.
+          chmod +x Godot_mono.app/Contents/MacOS/Godot
           
           # Setup Templates
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
@@ -76,26 +82,21 @@ jobs:
         run: |
           echo '{"sdk": {"version": "6.0.428"}}' > global.json
           
-          # 1. Path to the DLLs inside the Mac App
-          # Verify this path matches your unzip location!
+          # Define the path to the Godot Sharp DLLs inside the Mac App bundle
           export GODOT_DLL_PATH="$(pwd)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
           
-          # 2. STRIP HintPaths from the .csproj
-          # This removes the hardcoded Windows paths so MSBuild is FORCED to use our ReferencePath
+          # Clean up the project file so it doesn't look for Windows paths
           sed -i '' 's|<HintPath>.*</HintPath>||g' "Lacie_Engine.csproj"
           
-          # 3. Restore
+          # Restore and Build using the explicit search path
           dotnet restore "Lacie_Engine.csproj"
           
-          # 4. Build
-          # We pass ReferencePath AND AdditionalLibPaths just to be safe
           dotnet build "Lacie_Engine.csproj" \
             -c Release \
             /p:Configuration=Release \
             /p:Platform=iPhone \
             /p:GodotTargetPlatform=ios \
-            /p:ReferencePath="$GODOT_DLL_PATH" \
-            /p:AdditionalLibPaths="$GODOT_DLL_PATH"
+            /p:AssemblySearchPaths="$GODOT_DLL_PATH"
 
       # 5. Fresh Export (This replaces the manual "Repair" step)
       - name: Godot Export to iOS
@@ -110,20 +111,6 @@ jobs:
           # No need to cd ios, Godot 3.5 creates the folder structure
           xcodebuild \
             -project ios/game.xcodeproj \
-            -scheme "game" \
-            -configuration Release \
-            -sdk iphoneos \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
-
-      # 6. Build the actual iOS App
-      - name: Build Xcode Project (Unsigned)
-        run: |
-          cd ios
-          xcodebuild \
-            -project game.xcodeproj \
             -scheme "game" \
             -configuration Release \
             -sdk iphoneos \
