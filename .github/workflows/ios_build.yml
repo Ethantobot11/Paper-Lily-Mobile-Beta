@@ -69,26 +69,30 @@ jobs:
       - name: Godot Export (Strict Asset Only)
         run: |
           mkdir -p ios
-          # 1. Dummy Team ID to satisfy the pre-flight check
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/game.xcodeproj/project.pbxproj || true
+
+          # 1. Prepare presets (These files exist in your repo, so we do them first)
           sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="1234567890"/g' export_presets.cfg
           sed -i '' 's/capabilities\/push_notifications=true/capabilities\/push_notifications=false/g' export_presets.cfg
           
-          # 2. Back up and Ghost the project (Same as before)
+          # 2. Back up and Ghost the project
           cp Lacie_Engine.csproj Lacie_Engine.csproj.bak
           cp project.godot project.godot.bak
           echo '<?xml version="1.0" encoding="utf-8"?><Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup><ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid><OutputType>Library</OutputType><OutputPath>bin\Release</OutputPath><AssemblyName>Lacie_Engine</AssemblyName><TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion></PropertyGroup></Project>' > Lacie_Engine.csproj
           sed -i '' '/\[mono\]/d' project.godot
           
-          # 3. Export to a DIRECTORY path. This forces Godot to skip the archive step.
+          # 3. Export to a DIRECTORY path.
+          # THIS IS THE STEP THAT CREATES THE ios/game.xcodeproj FOLDER
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
-
-           sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
+          
+          # 4. NOW fix the generated Xcode project (These lines MUST come after the export)
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/game.xcodeproj/project.pbxproj || true
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
           
-          # 4. Restore real files
+          # 5. Restore real files
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
+          mv project.godot.bak project.godot
 
       - name: Compile C# for iOS
         run: |
