@@ -117,17 +117,9 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # Use the path we just verified in the Setup step
-          LIBS_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/iphone-mono-libs"
+          # New clean path with no spaces
+          LIBS="/tmp/mono_libs"
           
-          # Define paths (Notice I removed the extra "/templates/")
-          MONO_LIB_PATH="$LIBS_DIR/libmonosgen-2.0.xcframework/ios-arm64"
-          NATIVE_LIB_PATH="$LIBS_DIR/libmono-native.xcframework/ios-arm64"
-          INTERP_LIB_PATH="$LIBS_DIR/libmono-ee-interp.xcframework/ios-arm64"
-          ICALL_LIB_PATH="$LIBS_DIR/libmono-icall-table.xcframework/ios-arm64"
-          ILGEN_LIB_PATH="$LIBS_DIR/libmono-ilgen.xcframework/ios-arm64"
-          PROFILER_LIB_PATH="$LIBS_DIR/libmono-profiler-log.xcframework/ios-arm64"
-
           xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
@@ -140,7 +132,13 @@ jobs:
             PROVISIONING_PROFILE="243c5777-85f5-48b5-8d71-2378da8f1ab7" \
             DEVELOPMENT_TEAM="Q6SJUT5K5D" \
             PRODUCT_BUNDLE_IDENTIFIER="com.xl.MyXL.Giant-staging" \
-            LIBRARY_SEARCH_PATHS="\"$MONO_LIB_PATH\" \"$NATIVE_LIB_PATH\" \"$INTERP_LIB_PATH\" \"$ICALL_LIB_PATH\" \"$ILGEN_LIB_PATH\" \"$PROFILER_LIB_PATH\"" \
+            LIBRARY_SEARCH_PATHS="\
+              $LIBS/libmonosgen-2.0.xcframework/ios-arm64 \
+              $LIBS/libmono-native.xcframework/ios-arm64 \
+              $LIBS/libmono-ee-interp.xcframework/ios-arm64 \
+              $LIBS/libmono-icall-table.xcframework/ios-arm64 \
+              $LIBS/libmono-ilgen.xcframework/ios-arm64 \
+              $LIBS/libmono-profiler-log.xcframework/ios-arm64" \
             OTHER_LDFLAGS="-lmonosgen-2.0 -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log" \
             -allowProvisioningUpdates
             
