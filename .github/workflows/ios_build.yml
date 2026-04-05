@@ -1,4 +1,4 @@
-name: "Godot iOS Build (Unsigned)"
+name: "Godot iOS Build (Signed)"
 on:
   workflow_dispatch:
   workflow_call:
@@ -41,67 +41,76 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      - name: Prepare Project for Export
+      # NEW STEP: Import your signing files from GitHub Secrets
+      - name: Install Apple Certificate and Provisioning Profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          MOBILE_PROVISION_BASE64: ${{ secrets.MOBILE_PROVISION_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          # Satisfy Godot's Team ID check via CLI injection
-          sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="1234567890"/g' export_presets.cfg
-          sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
-          rm -rf .mono/ bin/ obj/
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-      - name: Godot Export (Strict Asset Only)
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$MOBILE_PROVISION_BASE64" | base64 --decode -o $PP_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Godot Export (Generate Project)
         run: |
           mkdir -p ios
-          # 1. Dummy Team ID to satisfy the pre-flight check
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/game.xcodeproj/project.pbxproj || true
+          # Inject dummy data for the Godot pre-check
           sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="1234567890"/g' export_presets.cfg
-          sed -i '' 's/capabilities\/push_notifications=true/capabilities\/push_notifications=false/g' export_presets.cfg
+          sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
           
-          # 2. Back up and Ghost the project (Same as before)
+          # Ghost project method to avoid headless MSBuild crash
           cp Lacie_Engine.csproj Lacie_Engine.csproj.bak
-          cp project.godot project.godot.bak
           echo '<?xml version="1.0" encoding="utf-8"?><Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup><ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid><OutputType>Library</OutputType><OutputPath>bin\Release</OutputPath><AssemblyName>Lacie_Engine</AssemblyName><TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion></PropertyGroup></Project>' > Lacie_Engine.csproj
-          sed -i '' '/\[mono\]/d' project.godot
           
-          # 3. Export to a DIRECTORY path. This forces Godot to skip the archive step.
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
           
-          # 4. Restore real files
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
+          
+          # Fix deployment target for Xcode 15+
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/game.xcodeproj/project.pbxproj
 
       - name: Compile C# for iOS
         run: |
-          # This compiles your code into the 'ios' folder where Xcode expects it
           dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:BuildProject=false
 
-      - name: Build Xcode Project (Unsigned)
+      - name: Build Signed Xcode Archive
         run: |
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
-          xcodebuild build \
+          # Notice we use 'archive' and removed the 'CODE_SIGNING_ALLOWED=NO'
+          xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
             -configuration Release \
             -sdk iphoneos \
-            -arch arm64 \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
+            -archivePath ios/game.xcarchive \
+            -destination 'generic/platform=iOS' \
             LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH"
 
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # Find the .app. Xcode 15.4 usually puts it here:
-          APP_PATH=$(find build -name "game.app" -type d | head -n 1)
-          echo "Found app at: $APP_PATH"
-          cp -r "$APP_PATH" Payload/
+          # Extract the app from the archive
+          cp -r ios/game.xcarchive/Products/Applications/game.app Payload/
           zip -r Paper-Lily-iOS.ipa Payload
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Paper-Lily-iOS-Build
+          name: Paper-Lily-iOS-Signed
           path: Paper-Lily-iOS.ipa
