@@ -18,85 +18,57 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      - name: Hard Reset Project Metadata
+      # --- CRITICAL MISSING STEP ---
+      # Godot 3.5 Mono REQUIRES the legacy Mono Framework to load the "Core API"
+      - name: Install Legacy Mono Framework
         run: |
-          # Delete any leftover Windows build artifacts
-          rm -rf .mono/
-          rm -rf bin/
-          rm -rf obj/
-          
-          # Create a fresh metadata structure for Mac
-          mkdir -p .mono/metadata
-          
-          # Force the HintPath to point ONLY to the Mac App we downloaded
-          # This overwrites whatever was in your csproj originally
-          sed -i '' 's|<Reference Include="GodotSharp">.*</Reference>|<Reference Include="GodotSharp"><HintPath>$(ProjectDir)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/GodotSharp.dll</HintPath></Reference>|g' "Lacie_Engine.csproj"
-          sed -i '' 's|<Reference Include="GodotSharpEditor">.*</Reference>|<Reference Include="GodotSharpEditor"><HintPath>$(ProjectDir)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release/GodotSharpEditor.dll</HintPath></Reference>|g' "Lacie_Engine.csproj"
+          brew install --cask mono-pkg
+          # Add Mono to the path so Godot can find the 'mono' binary
+          echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0.428'
 
-      - name: Sanitize project.godot
-        run: |
-          # Remove editor-only settings that might confuse the headless exporter
-          sed -i '' '/\[editor\]/d' project.godot
-          sed -i '' '/script_templates_search_path/d' project.godot
-          
-          # Force GLES2 for the exporter if GLES3 is causing driver issues on the runner
-          # (Sometimes the software renderer on Mac runners hates GLES3)
-          sed -i '' 's/quality\/driver\/driver_name="GLES3"/quality\/driver\/driver_name="GLES2"/g' project.godot
-          
-          # Fix the double mono entry
-          sed -i '' '/unhandled_exception_policy=1/d' project.godot
-          echo '[mono]' >> project.godot
-          echo 'project/assembly_name="Lacie_Engine"' >> project.godot
-          echo 'runtime/unhandled_exception_policy=1' >> project.godot
-
-      # 1. Download and Prepare Godot
       - name: Setup Godot Mono & Templates
         run: |
-          # Download Mono version for macOS
+          # 1. Download Godot Engine
           curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot_mono_osx.zip
           
-          # Ensure the folder is named Godot_mono.app
-          # The universal zip usually contains "Godot_mono.app" 
-          # but we check for "Godot.app" just in case.
-          if [ -d "Godot.app" ]; then
-            mv Godot.app Godot_mono.app
-          fi
-
-          # CRITICAL: Grant execution permissions to the inner Godot binary
-          # Without this, the 'Godot Headless Export' step will fail.
+          # The zip usually contains "Godot_mono.app" (Universal version)
+          # We make sure it's at the root
+          mv "Godot_mono.app" ./Godot_mono.app || true
           chmod +x Godot_mono.app/Contents/MacOS/Godot
           
-          # Setup Templates
+          # 2. Setup Templates
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
+          mkdir -p /tmp/godot_templates
           unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
+          
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
+          # The templates inside the zip are usually in a 'templates' subfolder
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      # 5. Fresh Export (This replaces the manual "Repair" step)
+      - name: Prepare Project for Export
+        run: |
+          # Force the preset to mode 0 (Text/Compiled) to prevent AOT crash
+          sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
+          
+          # Hard Reset Metadata to ensure a clean Mac environment
+          rm -rf .mono/ bin/ obj/
+          mkdir -p .mono/metadata
+
       - name: Godot Export
         run: |
           mkdir -p ios
-          
-          # 1. Manually set the Framework path so Godot doesn't have to guess
-          # This points to the Mono version bundled with the dotnet SDK on the runner
-          export FrameworkPathOverride=$(dirname $(which dotnet))/../shared/Microsoft.NETCore.App/*
-          
-          # 2. Force the preset to mode 0 (Text/Compiled)
-          sed -i '' 's/script_export_mode=1/script_export_mode=0/g' export_presets.cfg
-          
-          # 3. Run export with full logging to see exactly where it dies if this fails
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.ipa -v
-          
-      # 6. Build the actual iOS App
+          # Export to .xcodeproj (The --no-build is vital for Mono on iOS runners)
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.xcodeproj
+
       - name: Build Xcode Project (Unsigned)
         run: |
-          # No need to cd ios, Godot 3.5 creates the folder structure
+          # We use -allowProvisioningDeviceRegistration to bypass some CI restrictions
           xcodebuild \
             -project ios/game.xcodeproj \
             -scheme "game" \
@@ -105,10 +77,18 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            -derivedDataPath build
+
+      - name: Package IPA
+        run: |
+          # Xcode creates a .app, but GitHub users usually want a .ipa
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/game.app Payload/
+          zip -r Paper-Lily-iOS.ipa Payload
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Paper-Lily-iOS-Build
-          path: ios/build/Release-iphoneos/game.ipa
+          path: Paper-Lily-iOS.ipa
