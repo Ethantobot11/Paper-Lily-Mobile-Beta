@@ -94,17 +94,22 @@ jobs:
 
       - name: Build Xcode Project (Unsigned)
         run: |
-          # We use -allowProvisioningDeviceRegistration to bypass some CI restrictions
+          # Define where the templates were installed
+          TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          
           xcodebuild \
             -project ios/game.xcodeproj \
             -scheme "game" \
             -configuration Release \
             -sdk iphoneos \
+            -arch arm64 \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            -derivedDataPath build
+            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH" \
+            OTHER_LDFLAGS="-framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreLayout -framework CoreMedia -framework CoreMotion -framework CoreVideo -framework Foundation -framework GameController -framework MediaPlayer -framework Metal -framework MetalKit -framework QuartzCore -framework UIKit -framework CloudKit -framework CoreLocation -lresolv -lz -lsqlite3 -lstdc++"
 
       - name: Package IPA
         run: |
