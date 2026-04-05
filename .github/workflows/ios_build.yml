@@ -73,9 +73,6 @@ jobs:
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/game.xcodeproj/project.pbxproj || true
           sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="1234567890"/g' export_presets.cfg
           sed -i '' 's/capabilities\/push_notifications=true/capabilities\/push_notifications=false/g' export_presets.cfg
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
           
           # 2. Back up and Ghost the project (Same as before)
           cp Lacie_Engine.csproj Lacie_Engine.csproj.bak
@@ -85,6 +82,10 @@ jobs:
           
           # 3. Export to a DIRECTORY path. This forces Godot to skip the archive step.
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
+
+           sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
           
           # 4. Restore real files
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
