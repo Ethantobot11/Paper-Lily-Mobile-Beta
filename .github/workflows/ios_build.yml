@@ -41,6 +41,16 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
+          # This matches the path you want to use in the Build step
+          DEST_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/templates"
+          mkdir -p "$DEST_DIR"
+          
+          # Move the unzipped templates into that nested 'templates' folder
+          cp -r /tmp/godot_templates/templates/* "$DEST_DIR/"
+          
+          # VERIFY: If this command fails, the build will fail
+          ls "$DEST_DIR/iphone-mono-libs/libmonosgen-2.0.xcframework/ios-arm64/libmonosgen-2.0.a"
+
       # NEW STEP: Import your signing files from GitHub Secrets
       - name: Install Apple Certificate and Provisioning Profile
         env:
@@ -108,8 +118,11 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # 1. Path to the folder you showed in the screenshot
-          LIBS_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/templates/iphone-mono-libs"
+          mkdir -p /tmp/libs
+          cp -r "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/iphone-mono-libs/"* /tmp/libs/
+          
+          # Verify the .a files are in the new spot
+          ls -R /tmp/libs/
           
           # 2. We explicitly define the path to the .a file inside each xcframework
           # Note: 'ios-arm64' is the folder for the real iPhone device
