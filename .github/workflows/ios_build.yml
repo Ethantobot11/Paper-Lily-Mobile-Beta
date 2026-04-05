@@ -86,6 +86,7 @@ jobs:
           sed -i '' '/project\/assembly_name/d' project.godot
           
           # 4. Export (This will now only export assets/scenes)
+          # In your GitHub Action Godot Export step:
           ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.xcodeproj
           
           # 5. RESTORE everything so Xcode has the real code to build
