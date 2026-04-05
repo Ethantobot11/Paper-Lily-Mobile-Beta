@@ -73,6 +73,9 @@ jobs:
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/game.xcodeproj/project.pbxproj || true
           sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="1234567890"/g' export_presets.cfg
           sed -i '' 's/capabilities\/push_notifications=true/capabilities\/push_notifications=false/g' export_presets.cfg
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
           
           # 2. Back up and Ghost the project (Same as before)
           cp Lacie_Engine.csproj Lacie_Engine.csproj.bak
@@ -92,7 +95,15 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # Use the secret here
+          TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          
+          # Find the UUID from the profile we installed earlier
+          export PROV_UUID=$(grep -aA1 "UUID" ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | grep -oE '[-A-Z0-9]{36}' | head -n 1)
+          echo "Found Provisioning UUID: $PROV_UUID"
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/game.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' ios/game.xcodeproj/project.pbxproj
+
           xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
@@ -101,9 +112,11 @@ jobs:
             -archivePath ios/game.xcarchive \
             -destination 'generic/platform=iOS' \
             CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
             PROVISIONING_PROFILE=$PROV_UUID \
-            PROVISIONING_PROFILE_SPECIFIER=$PROV_UUID
+            PROVISIONING_PROFILE_SPECIFIER=$PROV_UUID \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            LIBRARY_SEARCH_PATHS="$TEMPLATE_PATH"
 
       - name: Package IPA
         run: |
