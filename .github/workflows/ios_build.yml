@@ -108,8 +108,11 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # 1. Path to the folder you showed in the screenshot
-          LIBS_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/templates/iphone-mono-libs"
+          mkdir -p /tmp/libs
+          cp -r "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/iphone-mono-libs/"* /tmp/libs/
+          
+          # Verify the .a files are in the new spot
+          ls -R /tmp/libs/
           
           # 2. We explicitly define the path to the .a file inside each xcframework
           # Note: 'ios-arm64' is the folder for the real iPhone device
