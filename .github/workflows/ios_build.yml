@@ -78,23 +78,6 @@ jobs:
           mkdir -p "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
-      - name: Force .NET 6.0 and Build
-        run: |
-          echo '{"sdk": {"version": "6.0.428"}}' > global.json
-          
-          # Use absolute paths
-          export GODOT_DLL_PATH="$(pwd)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
-          export EXTRA_LIBS="$(pwd)/_mono_referenced_assemblies"
-          
-          # The key fix: wrap the properties in quotes so the semicolons don't break the shell command
-          dotnet build "Lacie_Engine.csproj" \
-            -c Release \
-            "/p:Configuration=Release" \
-            "/p:GodotTargetPlatform=iphone" \
-            "/p:Platform=iPhone" \
-            "/p:ReferencePath=${GODOT_DLL_PATH};${EXTRA_LIBS}" \
-            "/p:AssemblySearchPaths={CandidateAssemblyFiles};${GODOT_DLL_PATH};${EXTRA_LIBS};$(pwd)"
-
       # 5. Fresh Export (This replaces the manual "Repair" step)
       - name: Godot Export to iOS
         run: |
