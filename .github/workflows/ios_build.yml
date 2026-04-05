@@ -79,11 +79,11 @@ jobs:
           cp -r /tmp/godot_templates/templates/* "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono/"
 
       # 5. Fresh Export (This replaces the manual "Repair" step)
-      - name: Godot Export to iOS
+      - name: Godot Export
         run: |
-          mkdir -p ios/
-          # Using --no-window for Godot 3.5.3
-          ./Godot_mono.app/Contents/MacOS/Godot --no-window --export "iOS" ios/game.xcodeproj
+          mkdir -p ios
+          # The --no-build flag is the key here
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.ipa
           
       # 6. Build the actual iOS App
       - name: Build Xcode Project (Unsigned)
