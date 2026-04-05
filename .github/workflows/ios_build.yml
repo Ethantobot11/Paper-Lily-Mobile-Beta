@@ -81,41 +81,33 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      - name: Godot Export (Strict Asset Only)
+      - name: Godot Export (Mono Enabled)
         run: |
           mkdir -p ios
 
-          # 1. Prepare presets (These files exist in your repo, so we do them first)
-          sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="1234567890"/g' export_presets.cfg
+          # 1. Prepare presets
+          # Replace with your actual Team ID
+          sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="Q6SJUT5K5D"/g' export_presets.cfg
           sed -i '' 's/capabilities\/push_notifications=true/capabilities\/push_notifications=false/g' export_presets.cfg
           
-          # 2. Back up and Ghost the project
-          cp Lacie_Engine.csproj Lacie_Engine.csproj.bak
-          cp project.godot project.godot.bak
-          echo '<?xml version="1.0" encoding="utf-8"?><Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup><ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid><OutputType>Library</OutputType><OutputPath>bin\Release</OutputPath><AssemblyName>Lacie_Engine</AssemblyName><TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion></PropertyGroup></Project>' > Lacie_Engine.csproj
-          sed -i '' '/\[mono\]/d' project.godot
+          # 2. Export (WE KEEP THE REAL PROJECT FILES)
+          # We use --no-build because we will build the C# in the next Xcode step
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
           
-          # 3. Export to a DIRECTORY path.
-          # THIS IS THE STEP THAT CREATES THE ios/game.xcodeproj FOLDER
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build || true
-          [ -d "ios/game.xcodeproj" ] && echo "Project folder created successfully!" || echo "Project folder MISSING!"
-          
-          # 4. FIX: If Godot created a .zip or .ipa by mistake, we ignore it.
-          # We ensure the directory exists for the next steps.
-          if [ ! -d "ios/game.xcodeproj" ]; then
-            echo "Xcode project folder not found! Checking if Godot exported a file instead..."
-            ls -R ios/
+          # 3. Verification
+          if [ -d "ios/game.xcodeproj" ]; then
+            echo "✅ Xcode project folder created successfully!"
+          else
+            echo "❌ Project folder MISSING! Listing directory for debugging:"
+            ls -R
+            exit 1
           fi
-
-          # 5. NOW apply the fixes to the project file
-          # We use "find" to make sure we hit the file even if Godot nested it
+          
+          # 4. Apply Xcode Project Fixes
+          # Note: Godot 3.5.3 often targets iOS 10.0 by default; 12.0 is safer for modern Mono
           find ios -name "project.pbxproj" -exec sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' {} +
           find ios -name "project.pbxproj" -exec sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' {} +
           find ios -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' {} +
-          
-          # 5. Restore real files
-          mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
-          mv project.godot.bak project.godot
 
       - name: Compile C# for iOS
         run: |
@@ -123,7 +115,7 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # New clean path with no spaces
+          # Use our successful /tmp path
           LIBS="/tmp/mono_libs"
           
           xcodebuild archive \
@@ -145,7 +137,7 @@ jobs:
               $LIBS/libmono-icall-table.xcframework/ios-arm64 \
               $LIBS/libmono-ilgen.xcframework/ios-arm64 \
               $LIBS/libmono-profiler-log.xcframework/ios-arm64" \
-            OTHER_LDFLAGS="-lmonosgen-2.0 -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log" \
+            OTHER_LDFLAGS="-lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log" \
             -allowProvisioningUpdates
             
       - name: Package IPA
