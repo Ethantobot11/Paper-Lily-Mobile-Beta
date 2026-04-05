@@ -82,21 +82,19 @@ jobs:
         run: |
           echo '{"sdk": {"version": "6.0.428"}}' > global.json
           
-          # Define the path to the Godot Sharp DLLs inside the Mac App bundle
+          # 1. Define absolute paths for the runner
           export GODOT_DLL_PATH="$(pwd)/Godot_mono.app/Contents/Resources/GodotSharp/Api/Release"
+          export EXTRA_LIBS="$(pwd)/_mono_referenced_assemblies"
           
-          # Clean up the project file so it doesn't look for Windows paths
-          sed -i '' 's|<HintPath>.*</HintPath>||g' "Lacie_Engine.csproj"
-          
-          # Restore and Build using the explicit search path
-          dotnet restore "Lacie_Engine.csproj"
-          
+          # 2. Build with properties matching your .csproj exactly
+          # We use 'iphone' (lowercase) to trigger your conditional References
           dotnet build "Lacie_Engine.csproj" \
             -c Release \
             /p:Configuration=Release \
+            /p:GodotTargetPlatform=iphone \
             /p:Platform=iPhone \
-            /p:GodotTargetPlatform=ios \
-            /p:AssemblySearchPaths="$GODOT_DLL_PATH"
+            /p:ReferencePath="$GODOT_DLL_PATH;$EXTRA_LIBS" \
+            /p:AssemblySearchPaths="{CandidateAssemblyFiles};$GODOT_DLL_PATH;$EXTRA_LIBS;$(pwd)"
 
       # 5. Fresh Export (This replaces the manual "Repair" step)
       - name: Godot Export to iOS
