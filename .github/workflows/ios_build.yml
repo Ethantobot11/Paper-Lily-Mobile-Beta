@@ -87,7 +87,7 @@ jobs:
           
           # 4. Export (This will now only export assets/scenes)
           # In your GitHub Action Godot Export step:
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --no-build --export "iOS" ios/game.xcodeproj
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" ios/game.xcodeproj --no-build
           
           # 5. RESTORE everything so Xcode has the real code to build
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
