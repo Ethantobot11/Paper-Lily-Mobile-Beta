@@ -109,7 +109,8 @@ jobs:
       - name: Godot Export (Official Mono Way)
         run: |
           mkdir -p ios
-          # Running with --path . ensures it finds the local GodotSharp folder we just copied
+          # --path . tells Godot to look in the current folder where we just put GodotSharp
+          # --export "iOS" will now attempt to trigger MSBuild/AOT
           godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj"
           
           # 3. VERIFY: Godot should have created 'data_Lacie_Engine' folder in the Xcode project
