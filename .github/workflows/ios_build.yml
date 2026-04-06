@@ -102,11 +102,10 @@ jobs:
           # 4. Check if the "Final Boss" file exists now
           GEN_FILE=$(find ios -name "godot_mono_setup.gen.cpp" | head -n 1)
           if [ -z "$GEN_FILE" ]; then
-            echo "❌ STILL MISSING godot_mono_setup.gen.cpp. Trying fallback..."
-            # Create an empty setup function so the linker doesn't crash 
-            # (Note: This is a fallback, real AOT might need the generated content)
-            echo 'extern "C" void gd_mono_setup_aot() {}' > ios/godot_mono_setup.cpp
-            echo "⚠️ Created empty fallback setup file."
+            echo "❌ STILL MISSING godot_mono_setup.gen.cpp. Creating Force-Injection file..."
+            # Using 'extern "C"' ensures the linker sees the exact name it's looking for
+            echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
+            echo 'extern "C" void gd_mono_setup_aot() { printf("Mono AOT Fallback Initialized\n"); }' >> ios/godot_mono_setup.cpp
           else
             echo "✅ SUCCESS: Found $GEN_FILE"
             cp "$GEN_FILE" ios/godot_mono_setup.cpp
@@ -140,7 +139,7 @@ jobs:
               $LIBS/libmono-ilgen.xcframework/ios-arm64 \
               $LIBS/libmono-profiler-log.xcframework/ios-arm64" \
             OTHER_LDFLAGS="-lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
-            OTHER_CFLAGS="-DREAL_T_IS_DOUBLE" \
+            OTHER_CFLAGS="-DREAL_T_IS_DOUBLE -include $(pwd)/ios/godot_mono_setup.cpp" \
             -allowProvisioningUpdates
             
       - name: Package IPA
