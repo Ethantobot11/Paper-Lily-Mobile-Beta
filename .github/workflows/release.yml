@@ -25,7 +25,7 @@ jobs:
       - name: Download iOS Build
         uses: actions/download-artifact@main
         with:
-          name: Paper-Lily
+          name: Paper-Lily-iOS-Signed
           path: ${{ github.workspace }}
 
       - name: Move iOS File
