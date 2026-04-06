@@ -8,52 +8,55 @@ jobs:
     uses: ./.github/workflows/android-build.yml
   build-ios:
     uses: ./.github/workflows/ios_build.yml
+    secrets: inherit
 
   Releaser:
     needs: [build-android, build-ios]
     runs-on: ubuntu-latest
     steps:
-      - name: Download Android Build
-        uses: actions/download-artifact@main
+      - name: Checkout (Needed for Tags)
+        uses: actions/checkout@v4
         with:
-          name: Paper-Lily
-          path: ${{ github.workspace }}
+          fetch-depth: 0
 
-      - name: Move Android File
-        run: mv "${{ github.workspace }}/Paper-Lily.apk" "${{ github.workspace }}/Paper-Lily-Android.apk"
+      - name: Download Android Build
+        uses: actions/download-artifact@v4
+        with:
+          name: Paper-Lily-Android  # Make sure this matches your Android YAML 'name'
+          path: artifacts/android
 
       - name: Download iOS Build
-        uses: actions/download-artifact@main
+        uses: actions/download-artifact@v4
         with:
-          name: Paper-Lily
-          path: ${{ github.workspace }}
+          name: Paper-Lily-iOS      # Make sure this matches your iOS YAML 'name'
+          path: artifacts/ios
 
-      - name: Move iOS File
-        run: mv "${{ github.workspace }}build/Paper-Lily.ipa" "${{ github.workspace }}PaperLily-iOS.ipa"
+      - name: Prepare Files
+        run: |
+          # Find the files regardless of exact subfolder
+          mv artifacts/android/*.apk ./Paper-Lily-Android.apk
+          mv artifacts/ios/*.ipa ./Paper-Lily-iOS.ipa
 
       - name: Get next tag
         id: tag
         run: |
           git fetch --tags
           latest=$(git tag -l "beta-*" | sort -V | tail -n 1)
-
           if [ -z "$latest" ]; then
             next="beta-0.0.6"
           else
             version=${latest#beta-}
             IFS='.' read -r major minor patch <<< "$version"
-            patch=$((patch+1))
-          next="beta-$major.$minor.$patch"
+            next="beta-$major.$minor.$((patch+1))"
           fi
-
-              echo "tag=$next" >> $GITHUB_OUTPUT
+          echo "next_tag=$next" >> $GITHUB_OUTPUT
 
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "beta-v0"
-          tag_name: "beta-0.0.5"
+          name: "Paper Lily ${{ steps.tag.outputs.next_tag }}"
+          tag_name: ${{ steps.tag.outputs.next_tag }}
           prerelease: true
           files: |
-            ${{ github.workspace }}/Paper-Lily-Android.apk
-            ${{ github.workspace }}/Paper-Lily-iOS.ipa
+            ./Paper-Lily-Android.apk
+            ./Paper-Lily-iOS.ipa
