@@ -152,5 +152,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Paper-Lily-iOS-Signed
+          name: Paper-Lily-iOS
           path: Paper-Lily-iOS.ipa
