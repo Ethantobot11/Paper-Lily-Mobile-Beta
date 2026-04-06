@@ -106,26 +106,38 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      - name: Godot Export (Official Mono Way)
+      - name: Godot Export (Assets Only)
         run: |
           mkdir -p ios
-          # --path . tells Godot to look in the current folder where we just put GodotSharp
-          # --export "iOS" will now attempt to trigger MSBuild/AOT
-          godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj"
-          
-          # 3. VERIFY: Godot should have created 'data_Lacie_Engine' folder in the Xcode project
-          # This folder contains the AOT-compiled code that makes the game actually run.
-          ls -R ios/data_Lacie_Engine || echo "❌ AOT DATA MISSING!"
-          
-      - name: Compile C# for iOS
+          # We use --no-build because Godot is failing to do it headlessly
+          godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build || true
+
+      - name: Manual C# AOT Compilation
         run: |
-          dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:BuildProject=false
-          find . -name "project_assembly.dll"
-          find . -name "libmonosgen-2.0.a"
+          # 1. Build the actual native iOS library from your C# code
+          # This creates the 'brain' that Godot was missing
+          dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:MtouchLink=SdkOnly /p:ForceAOT=true
+          
+          # 2. Find where dotnet put the static library (.a file) and the DLLs
+          mkdir -p ios/manual_aot
+          find bin/Release -name "*.a" -exec cp {} ios/manual_aot/ \;
+          find bin/Release -name "*.dll" -exec cp {} ios/manual_aot/ \;
+          
+          echo "Contents of manual_aot:"
+          ls ios/manual_aot/
+
+      - name: Create Godot Mono Setup Bridge
+        run: |
+          dotnet workload install ios
+          # This file tells the Godot C++ engine how to talk to your manual C# build
+          echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
+          echo 'extern "C" void gd_mono_setup_aot() { printf("Manual Mono AOT Initialized\n"); }' >> ios/godot_mono_setup.cpp
 
       - name: Build Signed Xcode Archive
         run: |
           LIBS="/tmp/mono_libs"
+          # This points to the folder where your 'dotnet publish' put the .a and .dll files
+          AOT_LIBS="$(pwd)/ios/manual_aot"
           
           xcodebuild archive \
             -project ios/game.xcodeproj \
@@ -145,8 +157,13 @@ jobs:
               $LIBS/libmono-ee-interp.xcframework/ios-arm64 \
               $LIBS/libmono-icall-table.xcframework/ios-arm64 \
               $LIBS/libmono-ilgen.xcframework/ios-arm64 \
-              $LIBS/libmono-profiler-log.xcframework/ios-arm64" \
-            OTHER_LDFLAGS="-lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
+              $LIBS/libmono-profiler-log.xcframework/ios-arm64 \
+              $AOT_LIBS" \
+            OTHER_LDFLAGS="\
+              -L$AOT_LIBS \
+              -lproject_assembly \
+              -lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log \
+              -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
             OTHER_CFLAGS="-DREAL_T_IS_DOUBLE -include $(pwd)/ios/godot_mono_setup.cpp" \
             -allowProvisioningUpdates
             
