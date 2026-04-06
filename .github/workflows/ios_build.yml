@@ -111,10 +111,6 @@ jobs:
             echo "✅ SUCCESS: Found $GEN_FILE"
             cp "$GEN_FILE" ios/godot_mono_setup.cpp
           fi
-
-          # 4. Standard Xcode Project Patches
-          find ios -name "project.pbxproj" -exec sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' {} +
-          find ios -name "project.pbxproj" -exec sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' {} +
           
       - name: Compile C# for iOS
         run: |
