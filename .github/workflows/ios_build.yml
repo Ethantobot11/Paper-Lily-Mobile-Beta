@@ -20,31 +20,34 @@ jobs:
 
       - name: Setup Godot Mono & Templates
         run: |
-          # 1. Editor
+          # 1. Download Editor & Templates
           curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot_mono_osx.zip
-          
-          # 2. Templates
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
-          mkdir -p /tmp/godot_templates
-          unzip -q -o Godot_templates.tpz -d /tmp/godot_templates
           
-          # 3. Destination: NO SPACES
+          # 2. Extract to a temp location first
+          mkdir -p /tmp/extract
+          unzip -q -o Godot_templates.tpz -d /tmp/extract
+          
+          # 3. Find the actual 'templates' folder inside the zip
+          # The .tpz usually contains a folder named 'templates'
+          REAL_TEMPLATES_DIR=$(find /tmp/extract -name "iphone.zip" -exec dirname {} \;)
+          echo "Templates found at: $REAL_TEMPLATES_DIR"
+
+          # 4. Copy to Official Godot Path (for the Export step)
+          GODOT_HABITAT="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          mkdir -p "$GODOT_HABITAT"
+          cp -r "$REAL_TEMPLATES_DIR"/* "$GODOT_HABITAT/"
+          
+          # 5. Copy to Linker Path (for the Xcode step)
           mkdir -p /tmp/mono_libs
+          cp -r "$GODOT_HABITAT/iphone-mono-libs/"* /tmp/mono_libs/
           
-          # 4. POWER FIND: Search for the libs and copy them
-          # This finds the folder wherever it unzipped and copies the contents
-          SOURCE=$(find /tmp/godot_templates -name "iphone-mono-libs" -type d | head -n 1)
-          if [ -z "$SOURCE" ]; then
-            echo "!!! ERROR: iphone-mono-libs NOT FOUND IN ZIP !!!"
-            exit 1
-          fi
-          
-          cp -v -r "$SOURCE/"* /tmp/mono_libs/
-          
-          # 5. VERIFY
-          echo "Listing /tmp/mono_libs to confirm success:"
-          ls /tmp/mono_libs
+          # 6. FINAL VERIFICATION
+          echo "Checking Official Path for iphone.zip:"
+          ls "$GODOT_HABITAT/iphone.zip"
+          echo "Checking Linker Path for libs:"
+          ls /tmp/mono_libs/libmonosgen-2.0.xcframework/ios-arm64/libmonosgen.a
 
       - name: Install Legacy Mono Framework
         run: |
