@@ -56,7 +56,6 @@ jobs:
         with:
           name: "Paper Lily ${{ steps.tag.outputs.next_tag }}"
           tag_name: ${{ steps.tag.outputs.next_tag }}
-          prerelease: true
           files: |
             ./Paper-Lily-Android.apk
             ./Paper-Lily-iOS.ipa
