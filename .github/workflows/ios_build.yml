@@ -13,6 +13,9 @@ jobs:
           lfs: false
           fetch-depth: 0
 
+      - name: Check PCK size
+        run: ls -lh pack/
+
       - name: Force Xcode 15.4
         run: |
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
