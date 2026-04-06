@@ -87,6 +87,8 @@ jobs:
       - name: Godot Export (Mono Asset-Only)
         run: |
           mkdir -p ios
+          # 1. Temporarily move the C# project file so Godot thinks it's a regular project
+          mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
 
           # 1. Prepare presets
           sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="Q6SJUT5K5D"/g' export_presets.cfg
@@ -94,6 +96,9 @@ jobs:
           # 2. Export with --no-build
           # This tells Godot: "Don't try to compile C#, just give me the Xcode project"
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
+
+          # 3. Move it back immediately
+          mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
 
           # FORCE FIND the generated setup file
           GEN_FILE=$(find ios -name "godot_mono_setup.gen.cpp")
@@ -111,7 +116,7 @@ jobs:
             echo "✅ Xcode project generated!"
           else
             echo "❌ Export failed to create project folder."
-            exit 1
+            exit 666
           fi
 
           # 4. Standard Xcode Project Patches
