@@ -18,6 +18,16 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
+      - name: Install Legacy Mono Framework
+        run: |
+          brew install --cask mono-mdk
+          echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.428'
+
       - name: Setup Godot Mono & Templates
         run: |
           # 1. Download Editor & Templates
@@ -48,16 +58,6 @@ jobs:
           ls "$GODOT_HABITAT/iphone.zip"
           echo "Checking Linker Path for libs:"
           ls /tmp/mono_libs/libmonosgen-2.0.xcframework/ios-arm64/libmonosgen.a
-
-      - name: Install Legacy Mono Framework
-        run: |
-          brew install --cask mono-mdk
-          echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.428'
           
       # NEW STEP: Import your signing files from GitHub Secrets
       - name: Install Apple Certificate and Provisioning Profile
@@ -84,34 +84,29 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      - name: Godot Export (Mono Enabled)
+      - name: Godot Export (Mono Asset-Only)
         run: |
           mkdir -p ios
 
           # 1. Prepare presets
-          # Replace with your actual Team ID
           sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="Q6SJUT5K5D"/g' export_presets.cfg
-          sed -i '' 's/capabilities\/push_notifications=true/capabilities\/push_notifications=false/g' export_presets.cfg
           
-          # 2. Export (WE KEEP THE REAL PROJECT FILES)
-          # We use --no-build because we will build the C# in the next Xcode step
+          # 2. Export with --no-build
+          # This tells Godot: "Don't try to compile C#, just give me the Xcode project"
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
           
-          # 3. Verification
+          # 3. Verify the Xcode project exists
           if [ -d "ios/game.xcodeproj" ]; then
-            echo "✅ Xcode project folder created successfully!"
+            echo "✅ Xcode project generated!"
           else
-            echo "❌ Project folder MISSING! Listing directory for debugging:"
-            ls -R
+            echo "❌ Export failed to create project folder."
             exit 1
           fi
-          
-          # 4. Apply Xcode Project Fixes
-          # Note: Godot 3.5.3 often targets iOS 10.0 by default; 12.0 is safer for modern Mono
+
+          # 4. Standard Xcode Project Patches
           find ios -name "project.pbxproj" -exec sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 10.0/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' {} +
           find ios -name "project.pbxproj" -exec sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' {} +
-          find ios -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' {} +
-
+          
       - name: Compile C# for iOS
         run: |
           dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:BuildProject=false
@@ -140,7 +135,7 @@ jobs:
               $LIBS/libmono-icall-table.xcframework/ios-arm64 \
               $LIBS/libmono-ilgen.xcframework/ios-arm64 \
               $LIBS/libmono-profiler-log.xcframework/ios-arm64" \
-            OTHER_LDFLAGS="-lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log" \
+            OTHER_LDFLAGS="-lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
             -allowProvisioningUpdates
             
       - name: Package IPA
