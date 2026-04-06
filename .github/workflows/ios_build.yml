@@ -61,6 +61,16 @@ jobs:
           ls "$GODOT_HABITAT/iphone.zip"
           echo "Checking Linker Path for libs:"
           ls /tmp/mono_libs/libmonosgen-2.0.xcframework/ios-arm64/libmonosgen.a
+
+          # 7. FIX: Make the Editor's internal C# API visible to the runner
+          # This is why you get 'Failed to load Core API assembly'
+          cp -r Godot_v3.5.3-stable_mono_osx.universal/Godot_mono.app/Contents/Resources/GodotSharp ./
+
+          # 8. Create a shortcut so the command 'godot' works easily
+          sudo ln -s "$(pwd)/Godot_v3.5.3-stable_mono_osx.universal/Godot_mono.app/Contents/MacOS/Godot" /usr/local/bin/godot
+
+          # 9. Verify the API is there
+          ls ./GodotSharp/Api/Release/GodotSharp.dll
           
       # NEW STEP: Import your signing files from GitHub Secrets
       - name: Install Apple Certificate and Provisioning Profile
@@ -87,12 +97,11 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      - name: Godot Export (The Correct Mono Way)
+      - name: Godot Export (Official Mono Way)
         run: |
           mkdir -p ios
-          # 1. We NEED the C# files present for Godot to AOT compile them
-          # 2. Run the export WITH the build enabled first
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --verbose --export "iOS" "ios/game.xcodeproj"
+          # Running with --path . ensures it finds the local GodotSharp folder we just copied
+          godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj"
           
           # 3. VERIFY: Godot should have created 'data_Lacie_Engine' folder in the Xcode project
           # This folder contains the AOT-compiled code that makes the game actually run.
