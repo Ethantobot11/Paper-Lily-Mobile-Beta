@@ -109,19 +109,29 @@ jobs:
       - name: Godot Export (Assets Only)
         run: |
           mkdir -p ios
-          # We use --no-build because Godot is failing to do it headlessly
+          # Hide C# files so Godot doesn't crash trying to build them
+          mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
+          mv Lacie_Engine.sln Lacie_Engine.sln.bak
+          
+          # Export textures/sounds/Xcode project
           godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build || true
+          
+          # Bring them back
+          mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
+          mv Lacie_Engine.sln.bak Lacie_Engine.sln
 
       - name: Manual C# AOT Compilation
         run: |
-          # 1. Build the actual native iOS library from your C# code
-          # This creates the 'brain' that Godot was missing
-          dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:MtouchLink=SdkOnly /p:ForceAOT=true
+          # Build specifically for iOS arm64
+          dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone
           
-          # 2. Find where dotnet put the static library (.a file) and the DLLs
+          # Create the folder where Xcode expects the 'Brain'
           mkdir -p ios/manual_aot
-          find bin/Release -name "*.a" -exec cp {} ios/manual_aot/ \;
-          find bin/Release -name "*.dll" -exec cp {} ios/manual_aot/ \;
+          
+          # Copy the compiled library and DLLs from the path shown in your logs
+          # We use a wildcard search to be safe
+          find . -name "Lacie_Engine.dll" -exec cp {} ios/manual_aot/ \;
+          find . -name "Lacie_Engine.a" -exec cp {} ios/manual_aot/ \; || echo "No .a file found yet"
           
           echo "Contents of manual_aot:"
           ls ios/manual_aot/
