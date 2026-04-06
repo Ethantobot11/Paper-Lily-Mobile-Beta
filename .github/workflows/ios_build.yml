@@ -87,36 +87,22 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      - name: Godot Export (Surgical Ghost)
+      - name: Godot Export (The Correct Mono Way)
         run: |
           mkdir -p ios
+          # 1. We NEED the C# files present for Godot to AOT compile them
+          # 2. Run the export WITH the build enabled first
+          ./Godot_mono.app/Contents/MacOS/Godot --headless --verbose --export "iOS" "ios/game.xcodeproj"
           
-          # 1. Hide ONLY the C# project files (This prevents the build crash)
-          mv Lacie_Engine.csproj Lacie_Engine.csproj.ghost || true
-          mv Lacie_Engine.sln Lacie_Engine.sln.ghost || true
-          
-          # 2. Export (Godot will now skip the build step and just export assets/Xcode)
-          ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build || true
-          
-          # 3. Bring the files back immediately
-          mv Lacie_Engine.csproj.ghost Lacie_Engine.csproj || true
-          mv Lacie_Engine.sln.ghost Lacie_Engine.sln || true
-
-          # 4. Check if the "Final Boss" file exists now
-          GEN_FILE=$(find ios -name "godot_mono_setup.gen.cpp" | head -n 1)
-          if [ -z "$GEN_FILE" ]; then
-            echo "❌ STILL MISSING godot_mono_setup.gen.cpp. Creating Force-Injection file..."
-            # Using 'extern "C"' ensures the linker sees the exact name it's looking for
-            echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
-            echo 'extern "C" void gd_mono_setup_aot() { printf("Mono AOT Fallback Initialized\n"); }' >> ios/godot_mono_setup.cpp
-          else
-            echo "✅ SUCCESS: Found $GEN_FILE"
-            cp "$GEN_FILE" ios/godot_mono_setup.cpp
-          fi
+          # 3. VERIFY: Godot should have created 'data_Lacie_Engine' folder in the Xcode project
+          # This folder contains the AOT-compiled code that makes the game actually run.
+          ls -R ios/data_Lacie_Engine || echo "❌ AOT DATA MISSING!"
           
       - name: Compile C# for iOS
         run: |
           dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone /p:BuildProject=false
+          find . -name "project_assembly.dll"
+          find . -name "libmonosgen-2.0.a"
 
       - name: Build Signed Xcode Archive
         run: |
