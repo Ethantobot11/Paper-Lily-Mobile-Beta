@@ -62,15 +62,24 @@ jobs:
           echo "Checking Linker Path for libs:"
           ls /tmp/mono_libs/libmonosgen-2.0.xcframework/ios-arm64/libmonosgen.a
 
-          # 7. FIX: Make the Editor's internal C# API visible to the runner
-          # This is why you get 'Failed to load Core API assembly'
-          cp -r Godot_v3.5.3-stable_mono_osx.universal/Godot_mono.app/Contents/Resources/GodotSharp ./
+          # 7. FIX: Find the Godot_mono.app folder dynamically
+          APP_PATH=$(find . -name "Godot_mono.app" -type d | head -n 1)
+          echo "Found Godot App at: $APP_PATH"
 
-          # 8. Create a shortcut so the command 'godot' works easily
-          sudo ln -s "$(pwd)/Godot_v3.5.3-stable_mono_osx.universal/Godot_mono.app/Contents/MacOS/Godot" /usr/local/bin/godot
+          # 8. Copy the GodotSharp API to the project root
+          if [ -d "$APP_PATH/Contents/Resources/GodotSharp" ]; then
+                cp -r "$APP_PATH/Contents/Resources/GodotSharp" ./
+                echo "✅ GodotSharp copied successfully."
+          else
+                echo "❌ ERROR: Could not find GodotSharp inside $APP_PATH"
+                exit 1
+          fi
 
-          # 9. Verify the API is there
-          ls ./GodotSharp/Api/Release/GodotSharp.dll
+          # 9. Create the global shortcut
+          sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
+
+          # 10. Final Verification
+          ls -l ./GodotSharp/Api/Release/GodotSharp.dll
           
       # NEW STEP: Import your signing files from GitHub Secrets
       - name: Install Apple Certificate and Provisioning Profile
