@@ -94,6 +94,17 @@ jobs:
           # 2. Export with --no-build
           # This tells Godot: "Don't try to compile C#, just give me the Xcode project"
           ./Godot_mono.app/Contents/MacOS/Godot --headless --export "iOS" "ios/game.xcodeproj" --no-build
+
+          # FORCE FIND the generated setup file
+          GEN_FILE=$(find ios -name "godot_mono_setup.gen.cpp")
+          if [ -f "$GEN_FILE" ]; then
+            echo "✅ Found generated setup file at: $GEN_FILE"
+            # Move it to a predictable spot if needed
+            cp "$GEN_FILE" ios/godot_mono_setup.cpp
+          else
+            echo "❌ CRITICAL: godot_mono_setup.gen.cpp was not generated!"
+            exit 1
+          fi
           
           # 3. Verify the Xcode project exists
           if [ -d "ios/game.xcodeproj" ]; then
@@ -113,7 +124,6 @@ jobs:
 
       - name: Build Signed Xcode Archive
         run: |
-          # Use our successful /tmp path
           LIBS="/tmp/mono_libs"
           
           xcodebuild archive \
@@ -136,6 +146,7 @@ jobs:
               $LIBS/libmono-ilgen.xcframework/ios-arm64 \
               $LIBS/libmono-profiler-log.xcframework/ios-arm64" \
             OTHER_LDFLAGS="-lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
+            OTHER_CFLAGS="-DREAL_T_IS_DOUBLE" \
             -allowProvisioningUpdates
             
       - name: Package IPA
