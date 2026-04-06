@@ -108,6 +108,7 @@ jobs:
 
       - name: Godot Export (Assets Only)
         run: |
+          dotnet workload install ios
           mkdir -p ios
           # Hide C# files so Godot doesn't crash trying to build them
           mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
@@ -122,23 +123,25 @@ jobs:
 
       - name: Manual C# AOT Compilation
         run: |
-          # Build specifically for iOS arm64
+          # 1. Clean and Build
           dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone
           
-          # Create the folder where Xcode expects the 'Brain'
+          # 2. Prepare the bridge folder
           mkdir -p ios/manual_aot
           
-          # Copy the compiled library and DLLs from the path shown in your logs
-          # We use a wildcard search to be safe
+          # 3. Find and Copy the STATIC LIBRARY (.a)
+          # We rename it to 'libproject_assembly.a' so the linker finds it easily, 
+          # OR we change the linker flag. Let's rename it for simplicity.
+          find . -name "Lacie_Engine.a" -exec cp {} ios/manual_aot/libproject_assembly.a \;
+          
+          # 4. Copy the DLLs (Godot needs these inside the app bundle too)
           find . -name "Lacie_Engine.dll" -exec cp {} ios/manual_aot/ \;
-          find . -name "Lacie_Engine.a" -exec cp {} ios/manual_aot/ \; || echo "No .a file found yet"
           
           echo "Contents of manual_aot:"
-          ls ios/manual_aot/
+          ls -l ios/manual_aot/
 
       - name: Create Godot Mono Setup Bridge
         run: |
-          dotnet workload install ios
           # This file tells the Godot C++ engine how to talk to your manual C# build
           echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
           echo 'extern "C" void gd_mono_setup_aot() { printf("Manual Mono AOT Initialized\n"); }' >> ios/godot_mono_setup.cpp
@@ -162,15 +165,15 @@ jobs:
             DEVELOPMENT_TEAM="Q6SJUT5K5D" \
             PRODUCT_BUNDLE_IDENTIFIER="com.xl.MyXL.Giant-staging" \
             LIBRARY_SEARCH_PATHS="\
+              $(pwd)/ios/manual_aot \
               $LIBS/libmonosgen-2.0.xcframework/ios-arm64 \
               $LIBS/libmono-native.xcframework/ios-arm64 \
               $LIBS/libmono-ee-interp.xcframework/ios-arm64 \
               $LIBS/libmono-icall-table.xcframework/ios-arm64 \
               $LIBS/libmono-ilgen.xcframework/ios-arm64 \
-              $LIBS/libmono-profiler-log.xcframework/ios-arm64 \
-              $AOT_LIBS" \
+              $LIBS/libmono-profiler-log.xcframework/ios-arm64" \
             OTHER_LDFLAGS="\
-              -L$AOT_LIBS \
+              -L$(pwd)/ios/manual_aot \
               -lproject_assembly \
               -lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log \
               -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
