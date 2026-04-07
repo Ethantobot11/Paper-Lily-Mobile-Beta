@@ -7,7 +7,9 @@
     <LangVersion>9.0</LangVersion>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <DefineConstants Condition="'$(GodotTargetPlatform)' == 'iphone'">$(DefineConstants);IS_IOS_BUILD</DefineConstants>
-  </PropertyGroup>
+    <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
+    <NativeLib>Static</NativeLib>
+</PropertyGroup>
 
   <ItemGroup>
      <Reference Include="GodotSharp" Condition="'$(GodotTargetPlatform)' == 'iphone'">
