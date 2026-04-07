@@ -108,7 +108,6 @@ jobs:
 
       - name: Godot Export (Assets Only)
         run: |
-          dotnet workload install ios
           mkdir -p ios
           # Hide C# files so Godot doesn't crash trying to build them
           mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
@@ -120,6 +119,9 @@ jobs:
           # Bring them back
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv Lacie_Engine.sln.bak Lacie_Engine.sln
+
+      - name: Install iOS Workload
+        run: dotnet workload install ios
 
       - name: Manual C# AOT Compilation
         run: |
