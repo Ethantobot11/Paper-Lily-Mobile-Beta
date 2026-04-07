@@ -125,21 +125,38 @@ jobs:
 
       - name: Manual C# AOT Compilation
         run: |
-          # 1. Clean and Build
-          dotnet publish Lacie_Engine.csproj -c Release -r ios-arm64 --self-contained /p:GodotTargetPlatform=iphone
-          
-          # 2. Prepare the bridge folder
+          # 1. Clean the previous failed attempts
+          rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
+
+          # 2. Build the project using Godot's expected targets
+          # We use 'build' instead of 'publish' to ensure the .a is generated in the temp folders
+          dotnet build Lacie_Engine.csproj -c Release /p:TargetPlatform=ios /p:GodotTargetPlatform=iphone /p:BuildProject=false
+
+          # 3. THE SEARCH: Look for the hidden static library
+          # Godot 3.5.3 often puts it in .mono/temp/bin/Release/ios-arm64/
+          echo "Searching for the static library..."
+          find . -name "*.a" -ls
           
-          # 3. Find and Copy the STATIC LIBRARY (.a)
-          # We rename it to 'libproject_assembly.a' so the linker finds it easily, 
-          # OR we change the linker flag. Let's rename it for simplicity.
-          find . -name "Lacie_Engine.a" -exec cp {} ios/manual_aot/libproject_assembly.a \;
-          
-          # 4. Copy the DLLs (Godot needs these inside the app bundle too)
+          # 4. Copy and Rename
+          # We find the largest .a file (the engine assembly) and move it
+          FOUND_LIB=$(find . -name "Lacie_Engine.a" | head -n 1)
+          if [ -z "$FOUND_LIB" ]; then
+            # Fallback search for any assembly .a
+            FOUND_LIB=$(find . -name "*.a" | grep -v "libmono" | head -n 1)
+          fi
+
+          if [ ! -z "$FOUND_LIB" ]; then
+            cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
+            echo "✅ Successfully captured: $FOUND_LIB"
+          else
+            echo "❌ ERROR: No static library (.a) found! The brain is missing."
+            exit 1
+          fi
+
+          # 5. Copy the DLLs for metadata
           find . -name "Lacie_Engine.dll" -exec cp {} ios/manual_aot/ \;
           
-          echo "Contents of manual_aot:"
           ls -l ios/manual_aot/
 
       - name: Create Godot Mono Setup Bridge
