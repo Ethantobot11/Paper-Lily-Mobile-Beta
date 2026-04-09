@@ -50,7 +50,14 @@ jobs:
       # 1. First, build the C# project to ensure the .dlls exist
       - name: Build C# Project (Before Export)
         run: |
-          dotnet build Lacie_Engine.csproj -c Release /p:TargetPlatform=ios
+          # Define where the GodotSharp DLLs are (extracted in the Setup step)
+          # Usually they are in GodotSharp/Api/Release or GodotSharp/Api/Debug
+          API_PATH="$(pwd)/GodotSharp/Api/Release"
+          
+          dotnet build Lacie_Engine.csproj \
+            -c Release \
+            /p:TargetPlatform=ios \
+            /p:ReferencePath="$API_PATH"
 
       - name: Godot Export (Assets Only)
         run: |
