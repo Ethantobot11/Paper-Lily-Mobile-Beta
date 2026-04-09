@@ -43,6 +43,10 @@ jobs:
           APP_PATH=$(find . -name "Godot_mono.app" -type d | head -n 1)
           cp -r "$APP_PATH/Contents/Resources/GodotSharp" ./
           sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
+          # (Add this to the end of the 'Setup Godot Mono & Templates' step)
+          mkdir -p .mono/assemblies/Release
+          cp GodotSharp/Api/Release/*.dll .mono/assemblies/Release/
+          echo "✅ API DLLs moved to .mono/assemblies/Release"
 
       - name: Install iOS Workload
         run: dotnet workload install ios
@@ -50,14 +54,14 @@ jobs:
       # 1. First, build the C# project to ensure the .dlls exist
       - name: Build C# Project (Before Export)
         run: |
-          # Define where the GodotSharp DLLs are (extracted in the Setup step)
-          # Usually they are in GodotSharp/Api/Release or GodotSharp/Api/Debug
-          API_PATH="$(pwd)/GodotSharp/Api/Release"
+          # Point directly to where we just moved the files
+          API_PATH="$(pwd)/.mono/assemblies/Release"
           
           dotnet build Lacie_Engine.csproj \
             -c Release \
             /p:TargetPlatform=ios \
-            /p:ReferencePath="$API_PATH"
+            /p:ReferencePath="$API_PATH" \
+            /p:AssemblySearchPaths="$API_PATH"
 
       - name: Godot Export (Assets Only)
         run: |
