@@ -44,6 +44,14 @@ jobs:
           cp -r "$APP_PATH/Contents/Resources/GodotSharp" ./
           sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
 
+      - name: Install iOS Workload
+        run: dotnet workload install ios
+
+      # 1. First, build the C# project to ensure the .dlls exist
+      - name: Build C# Project (Before Export)
+        run: |
+          dotnet build Lacie_Engine.csproj -c Release /p:TargetPlatform=ios
+
       - name: Godot Export (Assets Only)
         run: |
           mkdir -p ios
@@ -52,9 +60,6 @@ jobs:
           godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build || true
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv Lacie_Engine.sln.bak Lacie_Engine.sln
-
-      - name: Install iOS Workload
-        run: dotnet workload install ios
 
       - name: Manual C# AOT Compilation
         run: |
