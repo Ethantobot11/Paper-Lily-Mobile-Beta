@@ -13,13 +13,9 @@ jobs:
           lfs: true
           fetch-depth: 0
 
-      - name: Check PCK size
-        run: ls -lh pack/
-
       - name: Force Xcode 15.4
         run: |
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-          xcodebuild -version
 
       - name: Install Legacy Mono Framework
         run: |
@@ -33,55 +29,21 @@ jobs:
 
       - name: Setup Godot Mono & Templates
         run: |
-          # 1. Download Editor & Templates
           curl -L -o Godot_mono_osx.zip "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_osx.universal.zip"
           unzip -q -o Godot_mono_osx.zip
           curl -L -o Godot_templates.tpz "https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_mono_export_templates.tpz"
-          
-          # 2. Extract to a temp location first
           mkdir -p /tmp/extract
           unzip -q -o Godot_templates.tpz -d /tmp/extract
-          
-          # 3. Find the actual 'templates' folder inside the zip
-          # The .tpz usually contains a folder named 'templates'
           REAL_TEMPLATES_DIR=$(find /tmp/extract -name "iphone.zip" -exec dirname {} \;)
-          echo "Templates found at: $REAL_TEMPLATES_DIR"
-
-          # 4. Copy to Official Godot Path (for the Export step)
           GODOT_HABITAT="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           mkdir -p "$GODOT_HABITAT"
           cp -r "$REAL_TEMPLATES_DIR"/* "$GODOT_HABITAT/"
-          
-          # 5. Copy to Linker Path (for the Xcode step)
           mkdir -p /tmp/mono_libs
           cp -r "$GODOT_HABITAT/iphone-mono-libs/"* /tmp/mono_libs/
-          
-          # 6. FINAL VERIFICATION
-          echo "Checking Official Path for iphone.zip:"
-          ls "$GODOT_HABITAT/iphone.zip"
-          echo "Checking Linker Path for libs:"
-          ls /tmp/mono_libs/libmonosgen-2.0.xcframework/ios-arm64/libmonosgen.a
-
-          # 7. FIX: Find the Godot_mono.app folder dynamically
           APP_PATH=$(find . -name "Godot_mono.app" -type d | head -n 1)
-          echo "Found Godot App at: $APP_PATH"
-
-          # 8. Copy the GodotSharp API to the project root
-          if [ -d "$APP_PATH/Contents/Resources/GodotSharp" ]; then
-                cp -r "$APP_PATH/Contents/Resources/GodotSharp" ./
-                echo "✅ GodotSharp copied successfully."
-          else
-                echo "❌ ERROR: Could not find GodotSharp inside $APP_PATH"
-                exit 1
-          fi
-
-          # 9. Create the global shortcut
+          cp -r "$APP_PATH/Contents/Resources/GodotSharp" ./
           sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
 
-          # 10. Final Verification
-          ls -l ./GodotSharp/Api/Release/GodotSharp.dll
-          
-      # NEW STEP: Import your signing files from GitHub Secrets
       - name: Install Apple Certificate and Provisioning Profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -92,31 +54,22 @@ jobs:
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
           echo -n "$MOBILE_PROVISION_BASE64" | base64 --decode -o $PP_PATH
-
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
           security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
-
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Godot Export (Assets Only)
         run: |
           mkdir -p ios
-          # Hide C# files so Godot doesn't crash trying to build them
           mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
           mv Lacie_Engine.sln Lacie_Engine.sln.bak
-          
-          # Export textures/sounds/Xcode project
           godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build || true
-          
-          # Bring them back
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv Lacie_Engine.sln.bak Lacie_Engine.sln
 
@@ -125,52 +78,31 @@ jobs:
 
       - name: Manual C# AOT Compilation
         run: |
-          # 1. Clean the previous failed attempts
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
-
-          # 2. Build the project using Godot's expected targets
-          # We use 'build' instead of 'publish' to ensure the .a is generated in the temp folders
           dotnet build Lacie_Engine.csproj -c Release /p:TargetPlatform=ios /p:GodotTargetPlatform=iphone /p:BuildProject=false
-
-          # 3. THE SEARCH: Look for the hidden static library
-          # Godot 3.5.3 often puts it in .mono/temp/bin/Release/ios-arm64/
-          echo "Searching for the static library..."
-          find . -name "*.a" -ls
-          
-          # 4. Copy and Rename
-          # We find the largest .a file (the engine assembly) and move it
           FOUND_LIB=$(find . -name "Lacie_Engine.a" | head -n 1)
           if [ -z "$FOUND_LIB" ]; then
-            # Fallback search for any assembly .a
             FOUND_LIB=$(find . -name "*.a" | grep -v "libmono" | head -n 1)
           fi
-
-          if [ ! -z "$FOUND_LIB" ]; then
-            cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
-            echo "✅ Successfully captured: $FOUND_LIB"
-          else
-            echo "❌ ERROR: No static library (.a) found! The brain is missing."
-            exit 1
-          fi
-
-          # 5. Copy the DLLs for metadata
+          cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
+          # Copy DLLs for the metadata packaging step later
           find . -name "Lacie_Engine.dll" -exec cp {} ios/manual_aot/ \;
-          
-          ls -l ios/manual_aot/
+          find . -name "GodotSharp.dll" -exec cp {} ios/manual_aot/ \;
 
       - name: Create Godot Mono Setup Bridge
         run: |
-          # This file tells the Godot C++ engine how to talk to your manual C# build
-          echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
-          echo 'extern "C" void gd_mono_setup_aot() { printf("Manual Mono AOT Initialized\n"); }' >> ios/godot_mono_setup.cpp
+          # This creates the mandatory symbol for the Godot runtime
+          cat <<EOF > ios/godot_mono_setup.cpp
+          #include <stdio.h>
+          extern "C" void gd_mono_setup_aot() { 
+              printf("GDMono: Manual AOT Initialized\n"); 
+          }
+          EOF
 
       - name: Build Signed Xcode Archive
         run: |
           LIBS="/tmp/mono_libs"
-          # This points to the folder where your 'dotnet publish' put the .a and .dll files
-          AOT_LIBS="$(pwd)/ios/manual_aot"
-          
           xcodebuild archive \
             -project ios/game.xcodeproj \
             -scheme "game" \
@@ -194,16 +126,21 @@ jobs:
             OTHER_LDFLAGS="\
               -L$(pwd)/ios/manual_aot \
               -lproject_assembly \
+              -Wl,-all_load \
               -lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log \
               -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
             OTHER_CFLAGS="-DREAL_T_IS_DOUBLE -include $(pwd)/ios/godot_mono_setup.cpp" \
             -allowProvisioningUpdates
-            
+
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # Extract the app from the archive
+          # Extract the app
           cp -r ios/game.xcarchive/Products/Applications/game.app Payload/
+          
+          # CRITICAL FIX: Inject DLLs into the .app bundle so Godot can find the script classes
+          cp ios/manual_aot/*.dll Payload/game.app/
+          
           zip -r Paper-Lily-iOS.ipa Payload
 
       - name: Upload Artifact
