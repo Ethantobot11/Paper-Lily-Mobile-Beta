@@ -10,13 +10,12 @@ config_version=4
 
 [application]
 
-config/name="Paper_Lily"
+config/name="Lacie Engine"
 run/main_scene="res://Initializer.tscn"
 config/use_custom_user_dir=true
-config/custom_user_dir_name="Paper_Lily"
+config/custom_user_dir_name="Paper Lily"
 config/project_settings_override="user://engine.cfg"
-run/low_processor_mode=true
-boot_splash/image="res://icon.png"
+boot_splash/image="res://splash.png"
 boot_splash/fullsize=false
 boot_splash/bg_color=Color( 0, 0, 0, 1 )
 config/icon="res://icon.png"
@@ -125,10 +124,6 @@ ui_end={
 "events": [  ]
 }
 
-[input_devices]
-
-pointing/emulate_touch_from_mouse=true
-
 [lacie_engine]
 
 core/game_name="Paper Lily Chapter 1"
@@ -217,11 +212,15 @@ translation_remaps={
 
 file_logging/enable_file_logging=true
 file_logging/log_path="user://logs/game.log"
+file_logging/max_log_files=999
 
 [mono]
 
 runtime/unhandled_exception_policy=1
-project/assembly_name="Lacie_Engine"
+project/assembly_name="Lacie Engine"
+export/aot/enabled=true
+export/aot/full_aot=true
+export/aot/use_interpreter=false
 unhandled_exception_policy=1
 
 [physics]
@@ -232,22 +231,5 @@ common/physics_jitter_fix=0.0
 
 quality/intended_usage/framebuffer_allocation=0
 quality/intended_usage/framebuffer_allocation.mobile=0
-quality/directional_shadow/size=512
-quality/directional_shadow/size.mobile=512
-quality/shadow_atlas/size=512
-quality/shadow_atlas/size.mobile=512
-quality/shadow_atlas/quadrant_0_subdiv=0
-quality/shadow_atlas/quadrant_1_subdiv=1
-quality/shadow_atlas/quadrant_2_subdiv=2
-quality/shadow_atlas/quadrant_3_subdiv=3
-quality/shadows/filter_mode=0
-quality/reflections/texture_array_reflections=false
-quality/reflections/high_quality_ggx=false
-quality/depth_prepass/enable=false
 batching/precision/uv_contract=true
-gles3/shaders/shader_compilation_mode=1
-gles3/shaders/shader_cache_size_mb=128
-cpu_lightmapper/quality/medium_quality_ray_count=64
-cpu_lightmapper/quality/high_quality_ray_count=64
-cpu_lightmapper/quality/ultra_quality_ray_count=64
 quality/2d/use_pixel_snap=false
