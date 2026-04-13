@@ -85,6 +85,7 @@ jobs:
 
       - name: Build C# Project (Before Export)
         run: |
+          # The folder where we merged everything
           FINAL_REF_PATH="$(pwd)/.mono/assemblies/Release"
           
           dotnet build Lacie_Engine.csproj \
@@ -92,8 +93,10 @@ jobs:
             /p:TargetPlatform=ios \
             /p:ReferencePath="$FINAL_REF_PATH" \
             /p:AssemblySearchPaths="$FINAL_REF_PATH" \
-            /p:NoStdLib=True \
-            /p:AutomaticallyUseStandardLibrary=False
+            /p:NoStdLib=true \
+            /p:DisableImplicitFrameworkReferences=true \
+            /p:AutomaticallyUseStandardLibrary=false \
+            /p:GenerateTargetFrameworkAttribute=false
             
       - name: Godot Export (Assets Only)
         run: |
