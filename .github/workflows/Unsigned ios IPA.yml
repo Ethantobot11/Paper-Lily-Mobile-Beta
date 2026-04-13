@@ -88,20 +88,18 @@ jobs:
           # 1. Path to your merged folder
           REF_PATH="$(pwd)/.mono/assemblies/Release"
           
-          # 2. Force the compiler to use your local netstandard.dll as the primary reference
           dotnet build Lacie_Engine.csproj \
             -c Release \
-            /p:TargetPlatform=ios \
-            /p:NoStdLib=true \
-            /p:DisableImplicitFrameworkReferences=true \
-            /p:ReferencePath="$REF_PATH" \
-            /p:AssemblySearchPaths="$REF_PATH" \
-            /r:"$REF_PATH/mscorlib.dll" \
-            /r:"$REF_PATH/netstandard.dll" \
-            /r:"$REF_PATH/System.dll" \
-            /r:"$REF_PATH/System.Core.dll" \
-            /r:"$REF_PATH/GodotSharp.dll"
-            /p:GenerateTargetFrameworkAttribute=false
+            -p:TargetPlatform=ios \
+            -p:NoStdLib=true \
+            -p:DisableImplicitFrameworkReferences=true \
+            -p:ReferencePath="$REF_PATH" \
+            -p:AssemblySearchPaths="$REF_PATH" \
+            --reference "$REF_PATH/mscorlib.dll" \
+            --reference "$REF_PATH/netstandard.dll" \
+            --reference "$REF_PATH/System.dll" \
+            --reference "$REF_PATH/System.Core.dll" \
+            --reference "$REF_PATH/GodotSharp.dll"
             
       - name: Godot Export (Assets Only)
         run: |
