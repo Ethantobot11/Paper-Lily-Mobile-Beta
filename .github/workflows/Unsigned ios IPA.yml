@@ -51,6 +51,19 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
+      - name: Merge Repo DLLs into Runner Mono Folder
+        run: |
+          # 1. Define the destination where the CLI expects them
+          DEST_PATH=".mono/assemblies/Release"
+          mkdir -p "$DEST_PATH"
+
+          # 2. Merge files from your Repo's Ref folder 
+          # Assuming you put your System DLLs in 'Internal/Refs'
+          cp -rv Internal/Refs/* "$DEST_PATH/"
+
+          # 3. List the folder to confirm the merge worked (useful for debugging)
+          ls -R "$DEST_PATH"
+
       # 1. First, build the C# project to ensure the .dlls exist
       - name: Build C# Project (Before Export)
         run: |
