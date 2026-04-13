@@ -51,18 +51,25 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Merge Repo DLLs into Runner Mono Folder
+      - name: Final DLL Merge (Repo Mono + Internal Refs)
         run: |
-          # 1. Define the destination where the CLI expects them
+          # 1. Prepare the destination
           DEST_PATH=".mono/assemblies/Release"
           mkdir -p "$DEST_PATH"
 
-          # 2. Merge files from your Repo's Ref folder 
-          # Assuming you put your System DLLs in 'Internal/Refs'
-          cp -rv Internal/Refs/* "$DEST_PATH/"
+          # 2. First, copy the standard .mono from the repo
+          if [ -d ".mono/assemblies/Release" ]; then
+            cp -rv .mono/assemblies/Release/* "$DEST_PATH/"
+          fi
 
-          # 3. List the folder to confirm the merge worked (useful for debugging)
-          ls -R "$DEST_PATH"
+          # 3. Then, overwrite/add the specific System DLLs from Internal/Refs
+          if [ -d "Internal/Refs" ]; then
+            cp -rv Internal/Refs/* "$DEST_PATH/"
+          fi
+
+          # 4. Debug: Check if mscorlib.dll and GodotSharp.dll are both there
+          echo "🔍 Contents of $DEST_PATH:"
+          ls "$DEST_PATH"
 
       # 1. First, build the C# project to ensure the .dlls exist
       - name: Build C# Project (Before Export)
