@@ -53,39 +53,40 @@ jobs:
 
       - name: Final DLL Merge (Repo Mono + Internal Refs)
         run: |
-          # 1. Prepare the destination
-          DEST_PATH=".mono/assemblies/Release"
-          mkdir -p "$DEST_PATH"
+          # 1. Prepare a staging area outside of the .mono tree
+          STAGING_PATH="$(pwd)/staging_dlls"
+          mkdir -p "$STAGING_PATH"
 
-          # 2. First, copy the standard .mono from the repo
+          # 2. Pull in the repo's assemblies
           if [ -d ".mono/assemblies/Release" ]; then
-            cp -rv .mono/assemblies/Release/* "$DEST_PATH/"
+            echo "📦 Collecting repo .mono files..."
+            cp -rf .mono/assemblies/Release/* "$STAGING_PATH/"
           fi
 
-          # 3. Then, overwrite/add the specific System DLLs from Internal/Refs
+          # 3. Pull in the System/Ref DLLs (overwriting if duplicates exist)
           if [ -d "Internal/Refs" ]; then
-            cp -rv Internal/Refs/* "$DEST_PATH/"
+            echo "📦 Collecting Internal/Refs..."
+            cp -rf Internal/Refs/* "$STAGING_PATH/"
           fi
 
-          # 4. Debug: Check if mscorlib.dll and GodotSharp.dll are both there
-          echo "🔍 Contents of $DEST_PATH:"
-          ls "$DEST_PATH"
+          # 4. Clean and move everything to the final Godot destination
+          mkdir -p .mono/assemblies/Release
+          cp -rf "$STAGING_PATH"/* .mono/assemblies/Release/
 
-      # 1. First, build the C# project to ensure the .dlls exist
+          echo "✅ Merge complete. Compiler now has Godot + System DLLs in one place."
+          ls .mono/assemblies/Release
+
       - name: Build C# Project (Before Export)
         run: |
-          # Path to Godot's DLLs
-          GODOT_PATH="$(pwd)/.mono/assemblies/Release"
-          
-          # Path to the System DLLs you just uploaded
-          SYSTEM_PATH="$(pwd)/Internal/Refs"
+          # Now we only need to point to the one merged folder
+          FINAL_REF_PATH="$(pwd)/.mono/assemblies/Release"
           
           dotnet build Lacie_Engine.csproj \
             -c Release \
             /p:TargetPlatform=ios \
-            /p:ReferencePath="$GODOT_PATH:$SYSTEM_PATH" \
-            /p:AssemblySearchPaths="$GODOT_PATH:$SYSTEM_PATH"
-
+            /p:ReferencePath="$FINAL_REF_PATH" \
+            /p:AssemblySearchPaths="$FINAL_REF_PATH"
+            
       - name: Godot Export (Assets Only)
         run: |
           mkdir -p ios
