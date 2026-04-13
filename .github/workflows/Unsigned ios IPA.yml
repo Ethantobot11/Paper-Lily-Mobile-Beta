@@ -54,14 +54,18 @@ jobs:
       # 1. First, build the C# project to ensure the .dlls exist
       - name: Build C# Project (Before Export)
         run: |
-          # Point directly to where we just moved the files
+          # Path to Godot's Release DLLs (which you moved earlier in the script)
           API_PATH="$(pwd)/.mono/assemblies/Release"
+          
+          # Path to the standard library references inside the GitHub Runner
+          # This provides System.Int32, System.String, etc.
+          NET_REF="/usr/local/share/dotnet/packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1"
           
           dotnet build Lacie_Engine.csproj \
             -c Release \
             /p:TargetPlatform=ios \
-            /p:ReferencePath="$API_PATH" \
-            /p:AssemblySearchPaths="$API_PATH"
+            /p:ReferencePath="$API_PATH:$NET_REF" \
+            /p:AssemblySearchPaths="$API_PATH:$NET_REF"
 
       - name: Godot Export (Assets Only)
         run: |
