@@ -15,8 +15,7 @@ run/main_scene="res://Initializer.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Paper_Lily"
 config/project_settings_override="user://engine.cfg"
-run/low_processor_mode=true
-boot_splash/image="res://icon.png"
+boot_splash/image="res://splash.png"
 boot_splash/fullsize=false
 boot_splash/bg_color=Color( 0, 0, 0, 1 )
 config/icon="res://icon.png"
@@ -217,11 +216,15 @@ translation_remaps={
 
 file_logging/enable_file_logging=true
 file_logging/log_path="user://logs/game.log"
+file_logging/max_log_files=999
 
 [mono]
 
 runtime/unhandled_exception_policy=1
-project/assembly_name="Lacie_Engine"
+project/assembly_name="Lacie Engine"
+export/aot/enabled=true
+export/aot/full_aot=true
+export/aot/use_interpreter=false
 unhandled_exception_policy=1
 
 [physics]
@@ -230,8 +233,8 @@ common/physics_jitter_fix=0.0
 
 [rendering]
 
-quality/intended_usage/framebuffer_allocation=0
-quality/intended_usage/framebuffer_allocation.mobile=0
+quality/intended_usage/framebuffer_allocation=256
+quality/intended_usage/framebuffer_allocation.mobile=265
 quality/directional_shadow/size=512
 quality/directional_shadow/size.mobile=512
 quality/shadow_atlas/size=512
