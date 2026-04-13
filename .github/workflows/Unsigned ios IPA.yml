@@ -10,7 +10,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
           fetch-depth: 0
 
       - name: Force Xcode 15.4
@@ -54,14 +54,17 @@ jobs:
       # 1. First, build the C# project to ensure the .dlls exist
       - name: Build C# Project (Before Export)
         run: |
-          # Point directly to where we just moved the files
-          API_PATH="$(pwd)/.mono/assemblies/Release"
+          # Path to Godot's DLLs
+          GODOT_PATH="$(pwd)/.mono/assemblies/Release"
+          
+          # Path to the System DLLs you just uploaded
+          SYSTEM_PATH="$(pwd)/Internal/Refs"
           
           dotnet build Lacie_Engine.csproj \
             -c Release \
             /p:TargetPlatform=ios \
-            /p:ReferencePath="$API_PATH" \
-            /p:AssemblySearchPaths="$API_PATH"
+            /p:ReferencePath="$GODOT_PATH:$SYSTEM_PATH" \
+            /p:AssemblySearchPaths="$GODOT_PATH:$SYSTEM_PATH"
 
       - name: Godot Export (Assets Only)
         run: |
