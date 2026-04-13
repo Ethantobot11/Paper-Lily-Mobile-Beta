@@ -69,6 +69,13 @@ jobs:
             cp -rf Internal/Refs/* "$STAGING_PATH/"
           fi
 
+          # (Inside your Merge Step)
+          # 3.5. Add your specific project dependencies
+          if [ -d "_mono_referenced_assemblies" ]; then
+            echo "📦 Collecting project dependencies..."
+            cp -rf _mono_referenced_assemblies/* "$STAGING_PATH/"
+          fi
+
           # 4. Clean and move everything to the final Godot destination
           mkdir -p .mono/assemblies/Release
           cp -rf "$STAGING_PATH"/* .mono/assemblies/Release/
@@ -78,14 +85,15 @@ jobs:
 
       - name: Build C# Project (Before Export)
         run: |
-          # Now we only need to point to the one merged folder
           FINAL_REF_PATH="$(pwd)/.mono/assemblies/Release"
           
           dotnet build Lacie_Engine.csproj \
             -c Release \
             /p:TargetPlatform=ios \
             /p:ReferencePath="$FINAL_REF_PATH" \
-            /p:AssemblySearchPaths="$FINAL_REF_PATH"
+            /p:AssemblySearchPaths="$FINAL_REF_PATH" \
+            /p:NoStdLib=True \
+            /p:AutomaticallyUseStandardLibrary=False
             
       - name: Godot Export (Assets Only)
         run: |
