@@ -10,18 +10,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          lfs: false
+          lfs: true
           fetch-depth: 0
 
       - name: Force Xcode 15.4
         run: |
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-
       - name: Install Legacy Mono Framework
         run: |
           brew install --cask mono-mdk
           echo "/Library/Frameworks/Mono.framework/Versions/Current/bin" >> $GITHUB_PATH
-
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -43,64 +41,6 @@ jobs:
           APP_PATH=$(find . -name "Godot_mono.app" -type d | head -n 1)
           cp -r "$APP_PATH/Contents/Resources/GodotSharp" ./
           sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
-          # (Add this to the end of the 'Setup Godot Mono & Templates' step)
-          mkdir -p .mono/assemblies/Release
-          cp GodotSharp/Api/Release/*.dll .mono/assemblies/Release/
-          echo "✅ API DLLs moved to .mono/assemblies/Release"
-
-      - name: Install iOS Workload
-        run: dotnet workload install ios
-
-      - name: Final DLL Merge (Repo Mono + Internal Refs)
-        run: |
-          # 1. Prepare a staging area outside of the .mono tree
-          STAGING_PATH="$(pwd)/staging_dlls"
-          mkdir -p "$STAGING_PATH"
-
-          # 2. Pull in the repo's assemblies
-          if [ -d ".mono/assemblies/Release" ]; then
-            echo "📦 Collecting repo .mono files..."
-            cp -rf .mono/assemblies/Release/* "$STAGING_PATH/"
-          fi
-
-          # 3. Pull in the System/Ref DLLs (overwriting if duplicates exist)
-          if [ -d "Internal/Refs" ]; then
-            echo "📦 Collecting Internal/Refs..."
-            cp -rf Internal/Refs/* "$STAGING_PATH/"
-          fi
-
-          # (Inside your Merge Step)
-          # 3.5. Add your specific project dependencies
-          if [ -d "_mono_referenced_assemblies" ]; then
-            echo "📦 Collecting project dependencies..."
-            cp -rf _mono_referenced_assemblies/* "$STAGING_PATH/"
-          fi
-
-          # 4. Clean and move everything to the final Godot destination
-          mkdir -p .mono/assemblies/Release
-          cp -rf "$STAGING_PATH"/* .mono/assemblies/Release/
-
-          echo "✅ Merge complete. Compiler now has Godot + System DLLs in one place."
-          ls .mono/assemblies/Release
-
-      - name: Build C# Project (Before Export)
-        run: |
-          # 1. Path to your merged folder
-          REF_PATH="$(pwd)/.mono/assemblies/Release"
-          
-          dotnet build Lacie_Engine.csproj \
-            -c Release \
-            -p:TargetPlatform=ios \
-            -p:NoStdLib=true \
-            -p:DisableImplicitFrameworkReferences=true \
-            -p:ReferencePath="$REF_PATH" \
-            -p:AssemblySearchPaths="$REF_PATH" \
-            --reference "$REF_PATH/mscorlib.dll" \
-            --reference "$REF_PATH/netstandard.dll" \
-            --reference "$REF_PATH/System.dll" \
-            --reference "$REF_PATH/System.Core.dll" \
-            --reference "$REF_PATH/GodotSharp.dll"
-            
       - name: Godot Export (Assets Only)
         run: |
           mkdir -p ios
@@ -109,6 +49,8 @@ jobs:
           godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build || true
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv Lacie_Engine.sln.bak Lacie_Engine.sln
+      - name: Install iOS Workload
+        run: dotnet workload install ios
 
       - name: Manual C# AOT Compilation
         run: |
@@ -121,12 +63,10 @@ jobs:
           fi
           cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
           find . -name "Lacie_Engine.dll" -exec cp {} ios/manual_aot/ \;
-
       - name: Create Godot Mono Setup Bridge
         run: |
           echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
           echo 'extern "C" void gd_mono_setup_aot() { printf("Manual Mono AOT Initialized\n"); }' >> ios/godot_mono_setup.cpp
-
       - name: Build Unsigned Xcode Project
         run: |
           LIBS="/tmp/mono_libs"
@@ -156,7 +96,6 @@ jobs:
               -lmonosgen -lmono-native -lmono-ee-interp -lmono-icall-table -lmono-ilgen -lmono-profiler-log \
               -liconv -lz -framework AudioToolbox -framework AVFoundation -framework CoreAudio -framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework MediaPlayer -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework Security -framework UIKit" \
             OTHER_CFLAGS="-DREAL_T_IS_DOUBLE -include $(pwd)/ios/godot_mono_setup.cpp"
-
       - name: Package Unsigned IPA
         run: |
           mkdir -p Payload
@@ -168,7 +107,6 @@ jobs:
           
           cp -r "$APP_DIR" Payload/
           zip -r Paper-Lily-Unsigned.ipa Payload
-
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
