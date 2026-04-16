@@ -43,16 +43,12 @@ jobs:
           sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
       - name: Godot Export (Assets Only)
         run: |
-          mkdir -p ios_build
+          mkdir -p
           # Rename C# files so Godot doesn't try (and fail) to build them itself
           mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
           mv Lacie_Engine.sln Lacie_Engine.sln.bak
           
-          # Export to a ZIP file. This skips the 'Provisioning Profile' check!
-          godot --path . --headless --verbose --export "iOS" "ios_build/game.zip" --no-build || true
-          
-          # Unzip the result to get the Xcode project structure
-          unzip -q ios_build/game.zip -d ios/
+          godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build --no-sign || true
           
           # Restore C# files for our manual AOT step
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
