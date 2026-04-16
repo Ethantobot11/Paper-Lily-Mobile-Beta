@@ -1,4 +1,4 @@
-name: "Godot iOS Build (Unsigned for Sideloading)"
+name: "Godot iOS Build"
 on:
   workflow_dispatch:
   workflow_call:
@@ -99,14 +99,25 @@ jobs:
       - name: Package Unsigned IPA
         run: |
           mkdir -p Payload
-          # Find the compiled .app
+          # 1. Find the compiled .app
           APP_DIR=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d | head -n 1)
           
-          # Optional: Double-check the Bundle ID inside the Info.plist just to be safe
+          # 2. INJECT THE DLLs (The missing "Brain" metadata)
+          # We copy all DLLs from our AOT step into the root of the app
+          echo "Injecting DLLs into $APP_DIR..."
+          cp ios/manual_aot/*.dll "$APP_DIR/"
+          
+          # 3. FIX BUNDLE ID
           /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.paperlily.chapter1" "$APP_DIR/Info.plist"
           
+          # 4. VERIFY CONTENT (Check the logs to see if they are there!)
+          echo "Contents of the final .app bundle:"
+          ls -l "$APP_DIR"
+          
+          # 5. ZIP IT UP
           cp -r "$APP_DIR" Payload/
           zip -r Paper-Lily-Unsigned.ipa Payload
+          
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
