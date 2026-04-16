@@ -28,7 +28,7 @@ jobs:
       - name: Download iOS Build
         uses: actions/download-artifact@v4
         with:
-          name: Paper-Lily-Unsigned      # Make sure this matches your iOS YAML 'name'
+          name: Paper-Lily-Unsigned-IPA      # Make sure this matches your iOS YAML 'name'
           path: artifacts/ios
 
       - name: Prepare Files
