@@ -43,10 +43,18 @@ jobs:
           sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
       - name: Godot Export (Assets Only)
         run: |
-          mkdir -p ios
+          mkdir -p ios_build
+          # Rename C# files so Godot doesn't try (and fail) to build them itself
           mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
           mv Lacie_Engine.sln Lacie_Engine.sln.bak
-          godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build || true
+          
+          # Export to a ZIP file. This skips the 'Provisioning Profile' check!
+          godot --path . --headless --verbose --export "iOS" "ios_build/game.zip" --no-build || true
+          
+          # Unzip the result to get the Xcode project structure
+          unzip -q ios_build/game.zip -d ios/
+          
+          # Restore C# files for our manual AOT step
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv Lacie_Engine.sln.bak Lacie_Engine.sln
       - name: Install iOS Workload
@@ -57,38 +65,38 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
           
-          # 1. Clean previous attempts
-          dotnet clean Lacie_Engine.csproj
-          
-          # 2. Build specifically for the device (ARM64)
-          # We use /p:NativeLib=Static to ensure we get a .a file
+          # Force the publish to a specific, easy-to-find folder
           dotnet publish Lacie_Engine.csproj -c Release \
             -r ios-arm64 \
             /p:TargetPlatform=ios \
             /p:GodotTargetPlatform=iphone \
             /p:BuildProject=false \
             /p:NativeLib=Static \
-            --self-contained
+            -o ./temp_output
           
-          # 3. Find the .a file (Searching every possible subfolder)
+          # Look in the new temp_output folder AND the hidden .mono folder
           FOUND_LIB=$(find . -name "Lacie_Engine.a" | head -n 1)
           
           if [ -z "$FOUND_LIB" ]; then
-             echo "❌ Still no .a file. Listing everything found to debug:"
-             find . -name "*.a"
+             echo "❌ Still no .a file. Checking the hidden Godot Mono temp folder..."
+             FOUND_LIB=$(find .mono/temp -name "Lacie_Engine.a" | head -n 1)
+          fi
+
+          if [ -z "$FOUND_LIB" ]; then
+             echo "❌ DEAD END. Listing all files in .mono/temp to see what happened:"
+             find .mono/temp -maxdepth 5
              exit 1
           fi
 
-          echo "Found library at: $FOUND_LIB"
+          echo "✅ Found library at: $FOUND_LIB"
           cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
           
-          # 4. Find and copy ALL DLLs (The Brain Maps)
-          # We look for the DLLs specifically in the publish folder
-          find bin -name "*.dll" -exec cp {} ios/manual_aot/ \;
+          # Copy DLLs from the publish folder
+          find . -name "*.dll" -not -path "./.mono/*" -exec cp {} ios/manual_aot/ \;
           
-          # 5. THE MOMENT OF TRUTH
-          echo "Verifying architecture (MUST BE arm64):"
+          echo "Verifying architecture:"
           lipo -info ios/manual_aot/libproject_assembly.a
+          
       - name: Create Godot Mono Setup Bridge
         run: |
           echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
