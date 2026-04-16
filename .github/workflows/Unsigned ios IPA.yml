@@ -61,19 +61,33 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
           
-          # Force the publish to a specific, easy-to-find folder
-          dotnet publish Lacie_Engine.csproj -c Release \
-            -r ios-arm64 \
-            -p:NativeLib=Static \
-            -p:PublishAot=true \
-            -p:IntermediateOutputPath=obj/ \
-            -o ./temp_output
+          # 1. Build the DLLs using standard MSBuild (part of the Mono MDK)
+          # We need the Release DLLs before we can AOT them
+          msbuild Lacie_Engine.csproj /p:Configuration=Release /p:Platform=AnyCPU
           
-          # Look in the new temp_output folder AND the hidden .mono folder
-          FOUND_LIB=$(find . -name "Lacie_Engine.a" | head -n 1)
+          # 2. Find the Godot AOT Cross-Compiler
+          # This was extracted during the "Setup Godot Mono & Templates" step
+          AOT_COMPILER=$(find "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono" -name "aot-compiler-arm64")
           
-          # Copy DLLs from the publish folder
-          find . -name "*.dll" -not -path "./.mono/*" -exec cp {} ios/manual_aot/ \;
+          if [ -z "$AOT_COMPILER" ]; then
+            echo "❌ Could not find the Godot AOT compiler in templates!"
+            exit 1
+          fi
+
+          # 3. Manually AOT the main game assembly
+          # This generates the .a file (Static Library)
+          $AOT_COMPILER --llvm --arm64 \
+            --staticlib \
+            -o ios/manual_aot/libproject_assembly.a \
+            bin/Release/Lacie_Engine.dll
+          
+          # 4. Copy all required DLLs (The "Map")
+          cp bin/Release/*.dll ios/manual_aot/
+          # Also grab the GodotSharp DLLs we extracted earlier
+          cp GodotSharp/Api/Release/*.dll ios/manual_aot/
+          
+          echo "✅ AOT Finished. Verifying libproject_assembly.a:"
+          lipo -info ios/manual_aot/libproject_assembly.a
 
       - name: Locate and Rename Library
         run: |
