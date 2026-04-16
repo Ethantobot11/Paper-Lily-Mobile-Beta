@@ -43,7 +43,7 @@ jobs:
           sudo ln -s "$(pwd)/$APP_PATH/Contents/MacOS/Godot" /usr/local/bin/godot
       - name: Godot Export (Assets Only)
         run: |
-          mkdir -p
+          mkdir -p ios
           # Rename C# files so Godot doesn't try (and fail) to build them itself
           mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
           mv Lacie_Engine.sln Lacie_Engine.sln.bak
