@@ -68,34 +68,29 @@ jobs:
           # Force the publish to a specific, easy-to-find folder
           dotnet publish Lacie_Engine.csproj -c Release \
             -r ios-arm64 \
-            /p:TargetPlatform=ios \
-            /p:GodotTargetPlatform=iphone \
-            /p:BuildProject=false \
-            /p:NativeLib=Static \
+            -p:NativeLib=Static \
+            -p:PublishAot=true \
+            -p:IntermediateOutputPath=obj/ \
             -o ./temp_output
           
           # Look in the new temp_output folder AND the hidden .mono folder
           FOUND_LIB=$(find . -name "Lacie_Engine.a" | head -n 1)
           
-          if [ -z "$FOUND_LIB" ]; then
-             echo "❌ Still no .a file. Checking the hidden Godot Mono temp folder..."
-             FOUND_LIB=$(find .mono/temp -name "Lacie_Engine.a" | head -n 1)
-          fi
-
-          if [ -z "$FOUND_LIB" ]; then
-             echo "❌ DEAD END. Listing all files in .mono/temp to see what happened:"
-             find .mono/temp -maxdepth 5
-             exit 1
-          fi
-
-          echo "✅ Found library at: $FOUND_LIB"
-          cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
-          
           # Copy DLLs from the publish folder
           find . -name "*.dll" -not -path "./.mono/*" -exec cp {} ios/manual_aot/ \;
+
+      - name: Locate and Rename Library
+        run: |
+          # Look for any .a file that is NOT the main Godot engine lib
+          REAL_A_FILE=$(find . -name "*.a" ! -name "libgodot.a" ! -path "./ios/*" | head -n 1)
           
-          echo "Verifying architecture:"
-          lipo -info ios/manual_aot/libproject_assembly.a
+          if [ -n "$REAL_A_FILE" ]; then
+            echo "✅ Found a likely candidate: $REAL_A_FILE"
+            cp "$REAL_A_FILE" ios/manual_aot/libproject_assembly.a
+          else
+            echo "❌ No static library found anywhere."
+            exit 1
+          fi
           
       - name: Create Godot Mono Setup Bridge
         run: |
