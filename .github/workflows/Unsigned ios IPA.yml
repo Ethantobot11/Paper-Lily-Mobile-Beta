@@ -57,30 +57,37 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
           
-          # Force the Runtime Identifier (RID) to ios-arm64
-          dotnet build Lacie_Engine.csproj -c Release \
+          # 1. Clean previous attempts
+          dotnet clean Lacie_Engine.csproj
+          
+          # 2. Build specifically for the device (ARM64)
+          # We use /p:NativeLib=Static to ensure we get a .a file
+          dotnet publish Lacie_Engine.csproj -c Release \
             -r ios-arm64 \
             /p:TargetPlatform=ios \
             /p:GodotTargetPlatform=iphone \
             /p:BuildProject=false \
-            /p:MtouchArch=ARM64 \
+            /p:NativeLib=Static \
             --self-contained
           
-          # Find and copy the ARM64 version
-          # We look specifically for the one in the ios-arm64 folder
-          FOUND_LIB=$(find . -path "*/ios-arm64/*" -name "Lacie_Engine.a" | head -n 1)
+          # 3. Find the .a file (Searching every possible subfolder)
+          FOUND_LIB=$(find . -name "Lacie_Engine.a" | head -n 1)
           
           if [ -z "$FOUND_LIB" ]; then
-             echo "❌ Still couldn't find ARM64 .a file! Searching everywhere..."
-             find . -name "Lacie_Engine.a"
+             echo "❌ Still no .a file. Listing everything found to debug:"
+             find . -name "*.a"
              exit 1
           fi
 
+          echo "Found library at: $FOUND_LIB"
           cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
-          find . -name "Lacie_Engine.dll" -exec cp {} ios/manual_aot/ \;
           
-          # VERIFICATION: This command MUST say 'arm64' in the logs
-          echo "Verifying architecture of the library:"
+          # 4. Find and copy ALL DLLs (The Brain Maps)
+          # We look for the DLLs specifically in the publish folder
+          find bin -name "*.dll" -exec cp {} ios/manual_aot/ \;
+          
+          # 5. THE MOMENT OF TRUTH
+          echo "Verifying architecture (MUST BE arm64):"
           lipo -info ios/manual_aot/libproject_assembly.a
       - name: Create Godot Mono Setup Bridge
         run: |
