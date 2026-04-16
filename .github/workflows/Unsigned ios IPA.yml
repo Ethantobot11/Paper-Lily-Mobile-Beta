@@ -56,13 +56,32 @@ jobs:
         run: |
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
-          dotnet build Lacie_Engine.csproj -c Release /p:TargetPlatform=ios /p:GodotTargetPlatform=iphone /p:BuildProject=false
-          FOUND_LIB=$(find . -name "Lacie_Engine.a" | head -n 1)
+          
+          # Force the Runtime Identifier (RID) to ios-arm64
+          dotnet build Lacie_Engine.csproj -c Release \
+            -r ios-arm64 \
+            /p:TargetPlatform=ios \
+            /p:GodotTargetPlatform=iphone \
+            /p:BuildProject=false \
+            /p:MtouchArch=ARM64 \
+            --self-contained
+          
+          # Find and copy the ARM64 version
+          # We look specifically for the one in the ios-arm64 folder
+          FOUND_LIB=$(find . -path "*/ios-arm64/*" -name "Lacie_Engine.a" | head -n 1)
+          
           if [ -z "$FOUND_LIB" ]; then
-            FOUND_LIB=$(find . -name "*.a" | grep -v "libmono" | head -n 1)
+             echo "❌ Still couldn't find ARM64 .a file! Searching everywhere..."
+             find . -name "Lacie_Engine.a"
+             exit 1
           fi
+
           cp "$FOUND_LIB" ios/manual_aot/libproject_assembly.a
           find . -name "Lacie_Engine.dll" -exec cp {} ios/manual_aot/ \;
+          
+          # VERIFICATION: This command MUST say 'arm64' in the logs
+          echo "Verifying architecture of the library:"
+          lipo -info ios/manual_aot/libproject_assembly.a
       - name: Create Godot Mono Setup Bridge
         run: |
           echo '#include <stdio.h>' > ios/godot_mono_setup.cpp
