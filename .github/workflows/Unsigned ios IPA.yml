@@ -53,6 +53,7 @@ jobs:
           # Restore C# files for our manual AOT step
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv Lacie_Engine.sln.bak Lacie_Engine.sln
+          
       - name: Install iOS Workload
         run: dotnet workload install ios
 
@@ -61,46 +62,55 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
           
-          # 1. LOCATE THE SYSTEM AOT COMPILER
-          # On macOS with Mono MDK, it's usually here:
-          AOT_COMPILER="/Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen"
+          # 1. ENSURE DLL IS BUILT
+          # We build for AnyCPU first to get a valid managed DLL
+          dotnet build Lacie_Engine.csproj -c Release
           
-          if [ ! -f "$AOT_COMPILER" ]; then
-             # Fallback to the one in the PATH
-             AOT_COMPILER=$(which mono-sgen)
+          # 2. FIND THE DLL (Look everywhere)
+          DLL_PATH=$(find . -name "Lacie_Engine.dll" | grep "Release" | head -n 1)
+          
+          if [ -z "$DLL_PATH" ]; then
+            echo "❌ ERROR: Lacie_Engine.dll not found!"
+            find . -name "*.dll"
+            exit 1
           fi
-          
-          echo "✅ Using AOT Compiler: $AOT_COMPILER"
+          echo "✅ Found DLL at: $DLL_PATH"
 
-          # 2. FIND THE DLL
-          DLL_PATH=$(find ./.mono/temp -name "Lacie_Engine.dll" | head -n 1)
+          # 3. SETUP COMPILER & BCL
+          AOT_COMPILER="/Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen"
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
-          # 3. SETUP THE ENVIRONMENT
-          # We need to point to the monotouch BCL so the compiler knows the iOS-specific types
+          # Point to the iOS-specific Base Class Libraries (BCL)
           export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch"
           
-          # 4. PERFORM THE AOT COMPILATION
-          # This command tells Mono to cross-compile for ARM64 iOS
+          # 4. PERFORM AOT
+          # We add --debug just to help the compiler map symbols, but keep 'nodebug' in AOT flags
+          echo "Starting AOT compilation..."
           $AOT_COMPILER --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios "$DLL_PATH"
           
-          # The command above generates a .s (assembly) file. We need to turn it into a .a (library)
-          # The assembly file is usually named [DLL_NAME].dll.s
-          ASM_FILE=$(find . -name "Lacie_Engine.dll.s")
+          # 5. CONVERT ASSEMBLY TO LIBRARY
+          # The compiler creates [DLL_NAME].s in the same folder as the DLL
+          ASM_FILE="${DLL_PATH}.s"
           
-          # Use clang (the Mac compiler) to turn the assembly into an object file
+          if [ ! -f "$ASM_FILE" ]; then
+            echo "❌ ERROR: Assembly file (.s) was not generated at $ASM_FILE"
+            ls -R
+            exit 1
+          fi
+
+          # Use Clang to compile the assembly into an ARM64 object
           clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-            -arch arm64 -miphoneos-version-min=10.0 \
+            -arch arm64 -miphoneos-version-min=12.0 \
             -c "$ASM_FILE" -o ios/manual_aot/libproject_assembly.o
           
-          # Use 'ar' to pack the object into a static library (.a)
+          # Pack into the .a library
           ar rcs ios/manual_aot/libproject_assembly.a ios/manual_aot/libproject_assembly.o
           
-          # 5. COLLECT DLLs
+          # 6. COPY DLLs FOR THE BUNDLE
           cp "$DLL_PATH" ios/manual_aot/
           cp "$TEMPLATE_DIR/bcl/monotouch/"*.dll ios/manual_aot/
           
-          echo "Verifying result:"
+          echo "Final Check:"
           lipo -info ios/manual_aot/libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
