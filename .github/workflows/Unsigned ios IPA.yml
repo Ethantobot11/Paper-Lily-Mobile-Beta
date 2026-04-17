@@ -63,42 +63,54 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
           
-          # Create a .gdignore file in the Godot_mono.app folder 
-          # to prevent Godot from trying to pack its own binary into the game
-          touch Godot_mono.app/.gdignore
+          # Prevent Godot from packing its own app bundle (saves time/memory)
+          if [ -d "Godot_mono.app" ]; then
+            touch Godot_mono.app/.gdignore
+          fi
           
-          # 2. TRIGGER EXPORT
-          # We use 'timeout' because Godot 3.5.3-mono often hangs on the 
-          # mbedtls/default_certs error AFTER it has already finished AOT.
+          # 2. TRIGGER EXPORT (MacOS Compatible Timeout)
           echo "Starting Godot export (AOT phase)..."
-          timeout 300s godot --headless --no-window --export-debug "iOS" /tmp/dummy.ipa || echo "Godot exited or timed out."
-
-          # 3. EXTRACT THE GENERATED ASSETS
-          # Godot 3.5.3 Mono iOS export generates:
-          # - libproject_assembly.a (The compiled code)
-          # - Various .dlls in the temp folder
           
+          # Run godot in background
+          godot --headless --no-window --export-debug "iOS" /tmp/dummy.ipa > godot_export_log.txt 2>&1 &
+          GODOT_PID=$!
+          
+          # Wait up to 5 minutes (300s) or until the process dies
+          WAIT_TIME=0
+          while kill -0 $GODOT_PID 2>/dev/null && [ $WAIT_TIME -lt 300 ]; do
+            sleep 5
+            WAIT_TIME=$((WAIT_TIME + 5))
+            if (( WAIT_TIME % 30 == 0 )); then echo "Exporting... ($WAIT_TIME seconds)"; fi
+          done
+          
+          # Kill it if it's still hanging on the certificate error
+          kill $GODOT_PID 2>/dev/null || true
+          echo "Godot export process finished or stopped."
+
+          # 3. SEARCH FOR ASSETS
           echo "Searching for compiled AOT assets..."
           
-          # Find the static library
-          GEN_LIB=$(find .mono/temp -name "libproject_assembly.a" | head -n 1)
+          # Godot 3.5.x puts temp files in .mono/temp or sometimes just .mono/
+          GEN_LIB=$(find .mono -name "libproject_assembly.a" | head -n 1)
           
           if [ -n "$GEN_LIB" ]; then
             echo "✅ Found static library: $GEN_LIB"
             cp "$GEN_LIB" ios/manual_aot/
+            
+            echo "Gathering AOT-stripped DLLs..."
+            # Find where the DLLs went (usually near the .a file)
+            GEN_DIR=$(dirname "$GEN_LIB")
+            find "$GEN_DIR" -name "*.dll" -exec cp {} ios/manual_aot/ \;
           else
             echo "❌ Could not find libproject_assembly.a"
-            # Look for the .s files as a fallback
-            find .mono/temp -name "*.s"
+            echo "Full Godot Log Output:"
+            cat godot_export_log.txt
+            echo "Directory structure of .mono:"
+            find .mono -maxdepth 3
             exit 1
           fi
 
-          # 4. GATHER THE STRIPPED DLLs
-          # These DLLs are "AOT-ready" and must match the .a file exactly
-          echo "Gathering AOT-stripped DLLs..."
-          find .mono/temp -name "*.dll" -exec cp {} ios/manual_aot/ \;
-
-          # 5. VERIFY ARCHITECTURE
+          # 4. VERIFY ARCHITECTURE
           lipo -info ios/manual_aot/libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
