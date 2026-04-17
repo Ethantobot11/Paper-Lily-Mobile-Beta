@@ -60,58 +60,47 @@ jobs:
       - name: Manual C# AOT Compilation
         run: |
           rm -rf ios/manual_aot
-          mkdir -p ios/manual_aot
+          mkdir -p ios/manual_aot/build_space
           
-          # 1. ENSURE DLL IS BUILT
-          # We build for AnyCPU first to get a valid managed DLL
-          dotnet build Lacie_Engine.csproj -c Release
-          
-          # 2. FIND THE DLL (Look everywhere)
-          DLL_PATH=$(find . -name "Lacie_Engine.dll" | grep "Release" | head -n 1)
-          
-          if [ -z "$DLL_PATH" ]; then
-            echo "❌ ERROR: Lacie_Engine.dll not found!"
-            find . -name "*.dll"
-            exit 1
-          fi
-          echo "✅ Found DLL at: $DLL_PATH"
-
-          # 3. SETUP COMPILER & BCL
-          AOT_COMPILER="/Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen"
+          # 1. PREPARE THE WORKSPACE
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          # Copy your game DLL to our build space
+          GAME_DLL=$(find . -name "Lacie_Engine.dll" | grep "Release" | head -n 1)
+          cp "$GAME_DLL" ios/manual_aot/build_space/
           
-          # Point to the iOS-specific Base Class Libraries (BCL)
-          export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch"
+          # Copy GodotSharp DLLs (the 'Bridge') into the same folder
+          # These were extracted earlier in your script
+          cp GodotSharp/Api/Release/*.dll ios/manual_aot/build_space/
           
-          # 4. PERFORM AOT
-          # We add --debug just to help the compiler map symbols, but keep 'nodebug' in AOT flags
-          echo "Starting AOT compilation..."
-          $AOT_COMPILER --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios "$DLL_PATH"
+          # 2. SETUP THE COMPILER
+          AOT_COMPILER="/Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen"
           
-          # 5. CONVERT ASSEMBLY TO LIBRARY
-          # The compiler creates [DLL_NAME].s in the same folder as the DLL
-          ASM_FILE="${DLL_PATH}.s"
+          # POINT TO THE DICTIONARY (BCL)
+          # We use the absolute path to avoid issues with spaces
+          export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch:ios/manual_aot/build_space"
           
-          if [ ! -f "$ASM_FILE" ]; then
-            echo "❌ ERROR: Assembly file (.s) was not generated at $ASM_FILE"
-            ls -R
-            exit 1
-          fi
-
-          # Use Clang to compile the assembly into an ARM64 object
+          echo "Starting AOT compilation in build_space..."
+          # We run the compiler from INSIDE the build_space folder
+          cd ios/manual_aot/build_space
+          $AOT_COMPILER --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios Lacie_Engine.dll
+          
+          # 3. CONVERT TO LIBRARY
+          echo "Converting assembly to static library..."
           clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
             -arch arm64 -miphoneos-version-min=12.0 \
-            -c "$ASM_FILE" -o ios/manual_aot/libproject_assembly.o
+            -c Lacie_Engine.dll.s -o ../libproject_assembly.o
           
-          # Pack into the .a library
-          ar rcs ios/manual_aot/libproject_assembly.a ios/manual_aot/libproject_assembly.o
+          cd ..
+          ar rcs libproject_assembly.a libproject_assembly.o
           
-          # 6. COPY DLLs FOR THE BUNDLE
-          cp "$DLL_PATH" ios/manual_aot/
-          cp "$TEMPLATE_DIR/bcl/monotouch/"*.dll ios/manual_aot/
+          # 4. CLEANUP & COLLECT
+          # Copy all DLLs from build_space (game + GodotSharp) to the final folder
+          cp build_space/*.dll .
+          # Also grab the BCL DLLs (mscorlib, etc)
+          cp "$TEMPLATE_DIR/bcl/monotouch/"*.dll .
           
-          echo "Final Check:"
-          lipo -info ios/manual_aot/libproject_assembly.a
+          echo "✅ AOT Success! Verifying Architecture:"
+          lipo -info libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
         run: |
