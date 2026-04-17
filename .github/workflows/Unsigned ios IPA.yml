@@ -57,67 +57,50 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Deep Scan Runner & Manual AOT
+      - name: Manual C# AOT Compilation
         run: |
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot/build_space
           
-          # 1. THE GLOBAL SEARCH
-          echo "Scanning entire runner for Godot AOT tools (this may take a moment)..."
-          # We search for the specific filename Godot uses for its cross-compiler
-          AOT_COMPILER=$(find / -name "aot-compiler-arm64" 2>/dev/null | head -n 1)
-          
-          if [ -z "$AOT_COMPILER" ]; then
-            echo "⚠️ aot-compiler-arm64 not found by name. Searching for Godot-specific mono-sgen..."
-            # Look for mono-sgen specifically in Godot-related folders
-            AOT_COMPILER=$(find . /tmp /Users/runner/Library -name "mono-sgen" | grep -i "iphone" | head -n 1)
-          fi
-
-          if [ -z "$AOT_COMPILER" ]; then
-            echo "⚠️ Specialized tool not found. Falling back to the linked 'godot' binary."
-            AOT_COMPILER="godot"
-          fi
-          
-          echo "✅ Selected Compiler: $AOT_COMPILER"
-          [ "$AOT_COMPILER" != "godot" ] && chmod +x "$AOT_COMPILER"
-
-          # 2. GATHER DLLs
+          # 1. PREPARE WORKSPACE (Already confirmed these paths work)
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           find . -name "Lacie_Engine.dll" | grep "Release" | xargs -I {} cp {} ios/manual_aot/build_space/
           find . -name "*.dll" ! -path "./ios/*" ! -path "./.mono/*" -exec cp {} ios/manual_aot/build_space/ \;
           cp GodotSharp/Api/Release/*.dll ios/manual_aot/build_space/ || true
 
-          # 3. RUN AOT COMPILATION
+          # 2. DEFINE THE COMPILER AND LLVM
+          # We use the Mono MDK compiler
+          AOT_COMPILER="/Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen"
+          
+          # We point to Xcode's LLVM toolchain
+          export LLVM_PATH="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+          
+          # 3. RUN AOT WITH FORCED LLVM ARM64
           export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch:$(pwd)/ios/manual_aot/build_space"
           cd ios/manual_aot/build_space
           
-          if [ "$AOT_COMPILER" = "godot" ]; then
-            echo "Running AOT via Godot Binary (with 60s timeout to bypass cert hang)..."
-            # We use 'perl' to create a timeout that doesn't return a fail code if it hits the limit
-            perl -e 'alarm 60; exec @ARGV' godot --headless --no-window --aot-batch Lacie_Engine.dll --aot-output-dir .. --aot-target arm64-apple-ios10.0 --aot-compiler-args "full,static,asmonly,direct-icalls,nodebug" || true
-          else
-            echo "Running AOT via Standalone Tool..."
-            "$AOT_COMPILER" --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios Lacie_Engine.dll
-          fi
-
-          # 4. LINKING
-          cd ..
-          # Find the .s file wherever it dropped (it might be in build_space or the parent)
-          ASM_FILE=$(find . -name "Lacie_Engine.dll.s" | head -n 1)
+          echo "Starting AOT with LLVM back-end..."
+          # The 'llvm' flag is the secret to getting ARM64 instead of x86
+          $AOT_COMPILER --aot=full,static,asmonly,direct-icalls,nodebug,llvm,mtriple=arm64-ios Lacie_Engine.dll
           
-          if [ -n "$ASM_FILE" ]; then
-            echo "✅ Assembly found: $ASM_FILE. Compiling to static library..."
+          # 4. CONVERT TO LIBRARY
+          cd ..
+          ASM_FILE="build_space/Lacie_Engine.dll.s"
+          
+          if [ -f "$ASM_FILE" ]; then
+            echo "✅ ARM64 Assembly generated. Linking via Clang..."
             clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
               -arch arm64 -miphoneos-version-min=12.0 \
               -c "$ASM_FILE" -o libproject_assembly.o
+            
             ar rcs libproject_assembly.a libproject_assembly.o
+            echo "✅ libproject_assembly.a created successfully."
           else
-            echo "❌ No .s file generated. Final directory listing:"
-            ls -R
+            echo "❌ AOT failed to produce assembly."
             exit 1
           fi
 
-          # 5. FINAL VERIFY
+          # 5. VERIFY
           lipo -info libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
