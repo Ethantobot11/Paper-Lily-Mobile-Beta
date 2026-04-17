@@ -61,56 +61,47 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
           
-          # 1. SETUP THE COMPILER
+          # 1. LOCATE THE SYSTEM AOT COMPILER
+          # On macOS with Mono MDK, it's usually here:
+          AOT_COMPILER="/Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen"
+          
+          if [ ! -f "$AOT_COMPILER" ]; then
+             # Fallback to the one in the PATH
+             AOT_COMPILER=$(which mono-sgen)
+          fi
+          
+          echo "✅ Using AOT Compiler: $AOT_COMPILER"
+
+          # 2. FIND THE DLL
+          DLL_PATH=$(find ./.mono/temp -name "Lacie_Engine.dll" | head -n 1)
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
-          # Unzip the iPhone specific tools if not already done
-          if [ -f "$TEMPLATE_DIR/iphone.zip" ]; then
-            echo "Extracting iPhone AOT tools..."
-            unzip -q -o "$TEMPLATE_DIR/iphone.zip" -d "$TEMPLATE_DIR/iphone_extracted"
-          fi
-          
-          # Find the actual cross-compiler binary
-          AOT_COMPILER=$(find "$TEMPLATE_DIR/iphone_extracted" -name "aot-compiler-arm64" | head -n 1)
-          
-          if [ -z "$AOT_COMPILER" ]; then
-            echo "❌ CRITICAL: aot-compiler-arm64 not found even after unzipping!"
-            exit 1
-          fi
-          echo "✅ Found AOT Compiler: $AOT_COMPILER"
-
-          # 2. PERFORM THE AOT
-          # Use the DLL that was just built in the .mono folder
-          DLL_PATH="./.mono/temp/bin/Release/ios-arm64/Lacie_Engine.dll"
-          
-          # We need to set the MONO_PATH so the compiler can find mscorlib.dll and others
+          # 3. SETUP THE ENVIRONMENT
+          # We need to point to the monotouch BCL so the compiler knows the iOS-specific types
           export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch"
           
-          $AOT_COMPILER --llvm --arm64 \
-            --staticlib \
-            -o ios/manual_aot/libproject_assembly.a \
-            "$DLL_PATH"
+          # 4. PERFORM THE AOT COMPILATION
+          # This command tells Mono to cross-compile for ARM64 iOS
+          $AOT_COMPILER --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios "$DLL_PATH"
           
-          # 3. COLLECT EVERYTHING FOR XCODE
+          # The command above generates a .s (assembly) file. We need to turn it into a .a (library)
+          # The assembly file is usually named [DLL_NAME].dll.s
+          ASM_FILE=$(find . -name "Lacie_Engine.dll.s")
+          
+          # Use clang (the Mac compiler) to turn the assembly into an object file
+          clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+            -arch arm64 -miphoneos-version-min=10.0 \
+            -c "$ASM_FILE" -o ios/manual_aot/libproject_assembly.o
+          
+          # Use 'ar' to pack the object into a static library (.a)
+          ar rcs ios/manual_aot/libproject_assembly.a ios/manual_aot/libproject_assembly.o
+          
+          # 5. COLLECT DLLs
           cp "$DLL_PATH" ios/manual_aot/
-          # Copy the standard libraries Xcode will look for
           cp "$TEMPLATE_DIR/bcl/monotouch/"*.dll ios/manual_aot/
           
-          echo "Verifying Static Library:"
+          echo "Verifying result:"
           lipo -info ios/manual_aot/libproject_assembly.a
-
-      - name: Locate and Rename Library
-        run: |
-          # Look for any .a file that is NOT the main Godot engine lib
-          REAL_A_FILE=$(find . -name "*.a" ! -name "libgodot.a" ! -path "./ios/*" | head -n 1)
-          
-          if [ -n "$REAL_A_FILE" ]; then
-            echo "✅ Found a likely candidate: $REAL_A_FILE"
-            cp "$REAL_A_FILE" ios/manual_aot/libproject_assembly.a
-          else
-            echo "❌ No static library found anywhere."
-            exit 1
-          fi
           
       - name: Create Godot Mono Setup Bridge
         run: |
