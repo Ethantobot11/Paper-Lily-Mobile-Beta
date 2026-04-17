@@ -57,58 +57,41 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Manual C# AOT Compilation
+      - name: Force Godot Internal AOT
         run: |
-          rm -rf ios/manual_aot
-          mkdir -p ios/manual_aot/build_space
-          
-          # 1. SETUP ENVIRONMENT
-          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
-          find . -name "Lacie_Engine.dll" | grep "Release" | xargs -I {} cp {} ios/manual_aot/build_space/
-          find . -name "*.dll" ! -path "./ios/*" ! -path "./.mono/*" -exec cp {} ios/manual_aot/build_space/ \;
-          cp GodotSharp/Api/Release/*.dll ios/manual_aot/build_space/ || true
-
-          # 2. RUN AOT VIA DIRECT MONO EXECUTION
-          # We tell Godot to run the Mono AOT compiler directly without starting the engine
-          export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch:$(pwd)/ios/manual_aot/build_space"
-          
-          echo "Executing AOT via Godot's internal Mono bridge..."
-          godot --headless --no-window \
-            --export-debug "iOS" /dev/null \
-            --extra-aot-args "full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios" \
-            Lacie_Engine.dll || true
-
-          # 3. CHECK FOR THE ASSEMBLY
-          # When called this way, Godot sometimes drops the file in the same folder as the DLL
-          cd ios/manual_aot
-          ASM_FILE=$(find .. -name "Lacie_Engine.dll.s" | head -n 1)
-          
-          if [ -z "$ASM_FILE" ]; then
-            echo "⚠️ Godot bridge failed. Trying one last 'Clean' Mono call..."
-            # Using the system mono but WITHOUT the LLVM flag, letting Clang handle the heavy lifting
-            /Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen \
-              --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios \
-              build_space/Lacie_Engine.dll
-            ASM_FILE=$(find . -name "Lacie_Engine.dll.s" | head -n 1)
-          fi
-
-          # 4. THE CLANG TRICK
-          # Even if Mono generates "weird" assembly, Clang is often smart enough to 
-          # translate it if we provide the right SDK path.
-          if [ -f "$ASM_FILE" ]; then
-            echo "✅ Assembly found. Attempting Apple Clang Translation..."
-            clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-              -arch arm64 -miphoneos-version-min=12.0 \
-              -c "$ASM_FILE" -o libproject_assembly.o
-            
-            ar rcs libproject_assembly.a libproject_assembly.o
-            echo "✅ Done!"
-          else
-            echo "❌ All AOT methods failed."
+          # 1. Prepare a dummy export preset if it doesn't exist
+          # This tells Godot: "Export for iOS, but don't worry about the signing yet"
+          if [ ! -f "export_presets.cfg" ]; then
+            echo "❌ No export_presets.cfg found! Please ensure it is in your repo."
             exit 1
           fi
 
-          lipo -info libproject_assembly.a
+          # 2. Trigger a real export to a temporary folder
+          # This will force Godot to run its internal AOT perfectly
+          mkdir -p /tmp/godot_aot_out
+          godot --headless --no-window --export-debug "iOS" /tmp/godot_aot_out/dummy.ipa
+
+          # 3. Godot just created the .a and .s files we need!
+          # They are usually hidden in the .mono/temp/ folder after an export
+          echo "Hunting for the generated library..."
+          GEN_LIB=$(find .mono/temp -name "libproject_assembly.a" | head -n 1)
+          
+          if [ -z "$GEN_LIB" ]; then
+            # Fallback: Look for the object files to pack them ourselves
+            echo "Lib not found, looking for object files..."
+            find .mono/temp -name "*.o"
+            exit 1
+          fi
+
+          # 4. Move the valid library to our expected location
+          mkdir -p ios/manual_aot
+          cp "$GEN_LIB" ios/manual_aot/libproject_assembly.a
+          
+          # 5. Copy all the DLLs that Godot just processed
+          cp .mono/temp/bin/Release/ios-arm64/*.dll ios/manual_aot/ 2>/dev/null || cp .mono/temp/obj/Release/ios-arm64/*.dll ios/manual_aot/
+          
+          echo "✅ Success! Verification:"
+          lipo -info ios/manual_aot/libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
         run: |
