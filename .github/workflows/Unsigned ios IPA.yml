@@ -59,38 +59,46 @@ jobs:
 
       - name: Force Godot Internal AOT
         run: |
-          # 1. Prepare a dummy export preset if it doesn't exist
-          # This tells Godot: "Export for iOS, but don't worry about the signing yet"
-          if [ ! -f "export_presets.cfg" ]; then
-            echo "❌ No export_presets.cfg found! Please ensure it is in your repo."
-            exit 1
-          fi
+          # 1. CLEANUP AND PREP
+          rm -rf ios/manual_aot
+          mkdir -p ios/manual_aot
+          
+          # Create a .gdignore file in the Godot_mono.app folder 
+          # to prevent Godot from trying to pack its own binary into the game
+          touch Godot_mono.app/.gdignore
+          
+          # 2. TRIGGER EXPORT
+          # We use 'timeout' because Godot 3.5.3-mono often hangs on the 
+          # mbedtls/default_certs error AFTER it has already finished AOT.
+          echo "Starting Godot export (AOT phase)..."
+          timeout 300s godot --headless --no-window --export-debug "iOS" /tmp/dummy.ipa || echo "Godot exited or timed out."
 
-          # 2. Trigger a real export to a temporary folder
-          # This will force Godot to run its internal AOT perfectly
-          mkdir -p /tmp/godot_aot_out
-          godot --headless --no-window --export-debug "iOS" /tmp/godot_aot_out/dummy.ipa
-
-          # 3. Godot just created the .a and .s files we need!
-          # They are usually hidden in the .mono/temp/ folder after an export
-          echo "Hunting for the generated library..."
+          # 3. EXTRACT THE GENERATED ASSETS
+          # Godot 3.5.3 Mono iOS export generates:
+          # - libproject_assembly.a (The compiled code)
+          # - Various .dlls in the temp folder
+          
+          echo "Searching for compiled AOT assets..."
+          
+          # Find the static library
           GEN_LIB=$(find .mono/temp -name "libproject_assembly.a" | head -n 1)
           
-          if [ -z "$GEN_LIB" ]; then
-            # Fallback: Look for the object files to pack them ourselves
-            echo "Lib not found, looking for object files..."
-            find .mono/temp -name "*.o"
+          if [ -n "$GEN_LIB" ]; then
+            echo "✅ Found static library: $GEN_LIB"
+            cp "$GEN_LIB" ios/manual_aot/
+          else
+            echo "❌ Could not find libproject_assembly.a"
+            # Look for the .s files as a fallback
+            find .mono/temp -name "*.s"
             exit 1
           fi
 
-          # 4. Move the valid library to our expected location
-          mkdir -p ios/manual_aot
-          cp "$GEN_LIB" ios/manual_aot/libproject_assembly.a
-          
-          # 5. Copy all the DLLs that Godot just processed
-          cp .mono/temp/bin/Release/ios-arm64/*.dll ios/manual_aot/ 2>/dev/null || cp .mono/temp/obj/Release/ios-arm64/*.dll ios/manual_aot/
-          
-          echo "✅ Success! Verification:"
+          # 4. GATHER THE STRIPPED DLLs
+          # These DLLs are "AOT-ready" and must match the .a file exactly
+          echo "Gathering AOT-stripped DLLs..."
+          find .mono/temp -name "*.dll" -exec cp {} ios/manual_aot/ \;
+
+          # 5. VERIFY ARCHITECTURE
           lipo -info ios/manual_aot/libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
