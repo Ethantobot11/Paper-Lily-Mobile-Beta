@@ -57,61 +57,58 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Force Godot Internal AOT
+      - name: Manual C# AOT (Bypassing Xcode Errors)
         run: |
-          # 1. CLEANUP AND PREP
           rm -rf ios/manual_aot
-          mkdir -p ios/manual_aot
+          mkdir -p ios/manual_aot/build_space
           
-          # Prevent Godot from packing its own app bundle (saves time/memory)
-          if [ -d "Godot_mono.app" ]; then
-            touch Godot_mono.app/.gdignore
-          fi
+          # 1. SETUP PATHS FROM YOUR SCREENSHOTS
+          # We need the 'monotouch' version of the .NET libraries
+          TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           
-          # 2. TRIGGER EXPORT (MacOS Compatible Timeout)
-          echo "Starting Godot export (AOT phase)..."
-          
-          # Run godot in background
-          godot --headless --no-window --export-debug "iOS" /tmp/dummy.ipa > godot_export_log.txt 2>&1 &
-          GODOT_PID=$!
-          
-          # Wait up to 5 minutes (300s) or until the process dies
-          WAIT_TIME=0
-          while kill -0 $GODOT_PID 2>/dev/null && [ $WAIT_TIME -lt 300 ]; do
-            sleep 5
-            WAIT_TIME=$((WAIT_TIME + 5))
-            if (( WAIT_TIME % 30 == 0 )); then echo "Exporting... ($WAIT_TIME seconds)"; fi
-          done
-          
-          # Kill it if it's still hanging on the certificate error
-          kill $GODOT_PID 2>/dev/null || true
-          echo "Godot export process finished or stopped."
+          # 2. COLLECT ALL DLLS INTO ONE SPOT
+          # This ensures the compiler finds Newtonsoft, Lacie_Engine, and GodotSharp together
+          find . -name "Lacie_Engine.dll" | grep "Release" | xargs -I {} cp {} ios/manual_aot/build_space/
+          find . -name "*.dll" ! -path "./ios/*" ! -path "./.mono/*" -exec cp {} ios/manual_aot/build_space/ \;
+          cp GodotSharp/Api/Release/*.dll ios/manual_aot/build_space/ || true
 
-          # 3. SEARCH FOR ASSETS
-          echo "Searching for compiled AOT assets..."
+          # 3. RUN THE COMPILER IN CROSS-COMPILE MODE
+          # Setting MONO_PATH to BCL_DIR is the 'switch' that tells Mono this is for iOS
+          export MONO_PATH="$BCL_DIR:$(pwd)/ios/manual_aot/build_space"
           
-          # Godot 3.5.x puts temp files in .mono/temp or sometimes just .mono/
-          GEN_LIB=$(find .mono -name "libproject_assembly.a" | head -n 1)
-          
-          if [ -n "$GEN_LIB" ]; then
-            echo "✅ Found static library: $GEN_LIB"
-            cp "$GEN_LIB" ios/manual_aot/
+          echo "Triggering direct ARM64 AOT compilation..."
+          # We use --aot-batch which is the internal command for Godot's AOT worker
+          godot --headless --no-window \
+            --aot-batch Lacie_Engine.dll \
+            --aot-output-dir "$(pwd)/ios/manual_aot" \
+            --aot-target arm64-apple-ios12.0 \
+            --aot-compiler-args "full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios" || true
+
+          # 4. CAPTURE AND KILL
+          # Godot will hang on the 'certs' error, but usually ONLY AFTER it writes the .s file
+          sleep 40
+          pkill -9 godot || true
+
+          # 5. ASSEMBLE TO .A
+          cd ios/manual_aot
+          if [ -f "Lacie_Engine.dll.s" ]; then
+            echo "✅ Success! ARM64 Assembly generated."
             
-            echo "Gathering AOT-stripped DLLs..."
-            # Find where the DLLs went (usually near the .a file)
-            GEN_DIR=$(dirname "$GEN_LIB")
-            find "$GEN_DIR" -name "*.dll" -exec cp {} ios/manual_aot/ \;
+            # Use Clang to turn the .s into a .a library
+            clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+              -arch arm64 -miphoneos-version-min=12.0 \
+              -c Lacie_Engine.dll.s -o libproject_assembly.o
+            
+            ar rcs libproject_assembly.a libproject_assembly.o
+            
+            echo "✅ Final Verification:"
+            lipo -info libproject_assembly.a
           else
-            echo "❌ Could not find libproject_assembly.a"
-            echo "Full Godot Log Output:"
-            cat godot_export_log.txt
-            echo "Directory structure of .mono:"
-            find .mono -maxdepth 3
+            echo "❌ Failed: Lacie_Engine.dll.s was not created."
+            echo "Check if the DLL is missing dependencies in MONO_PATH."
             exit 1
           fi
-
-          # 4. VERIFY ARCHITECTURE
-          lipo -info ios/manual_aot/libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
         run: |
