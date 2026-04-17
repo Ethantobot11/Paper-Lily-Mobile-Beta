@@ -60,35 +60,41 @@ jobs:
         run: |
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
-
+          
+          # 1. CLEAN & RESTORE
+          dotnet clean Lacie_Engine.csproj
           dotnet restore Lacie_Engine.csproj
           
-          # 1. Build the DLLs using standard MSBuild (part of the Mono MDK)
-          # We need the Release DLLs before we can AOT them
-          msbuild Lacie_Engine.csproj /p:Configuration=Release /p:Platform=AnyCPU
+          # 2. BUILD DLL (Using dotnet msbuild to avoid NETSDK1073)
+          # This creates the .dll without crashing on the FrameworkReference
+          dotnet msbuild Lacie_Engine.csproj /p:Configuration=Release /p:Platform=AnyCPU
           
-          # 2. Find the Godot AOT Cross-Compiler
-          # This was extracted during the "Setup Godot Mono & Templates" step
-          AOT_COMPILER=$(find "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono" -name "aot-compiler-arm64")
+          # 3. LOCATE THE CROSS-COMPILER
+          # Searching the templates directory for the specific Godot tool
+          AOT_COMPILER=$(find "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono" -name "aot-compiler-arm64" | head -n 1)
           
           if [ -z "$AOT_COMPILER" ]; then
-            echo "❌ Could not find the Godot AOT compiler in templates!"
+            echo "❌ Still can't find aot-compiler-arm64! Checking template path..."
+            ls -R "$HOME/Library/Application Support/Godot/templates/"
             exit 1
           fi
 
-          # 3. Manually AOT the main game assembly
-          # This generates the .a file (Static Library)
+          # 4. FIND THE GENERATED DLL
+          # It might be in bin/Release or .mono/temp/bin/Release/
+          DLL_PATH=$(find . -name "Lacie_Engine.dll" | grep Release | head -n 1)
+          echo "✅ Found DLL at: $DLL_PATH"
+
+          # 5. EXECUTE AOT (The Static Library)
           $AOT_COMPILER --llvm --arm64 \
             --staticlib \
             -o ios/manual_aot/libproject_assembly.a \
-            bin/Release/Lacie_Engine.dll
+            "$DLL_PATH"
           
-          # 4. Copy all required DLLs (The "Map")
-          cp bin/Release/*.dll ios/manual_aot/
-          # Also grab the GodotSharp DLLs we extracted earlier
-          cp GodotSharp/Api/Release/*.dll ios/manual_aot/
+          # 6. COPY DLLs FOR THE IPA
+          # We need these next to the binary in the final app
+          find . -name "*.dll" -path "*/Release/*" -exec cp {} ios/manual_aot/ \;
           
-          echo "✅ AOT Finished. Verifying libproject_assembly.a:"
+          echo "Final check of the assembly library:"
           lipo -info ios/manual_aot/libproject_assembly.a
 
       - name: Locate and Rename Library
