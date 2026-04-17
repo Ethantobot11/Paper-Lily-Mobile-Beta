@@ -62,45 +62,52 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot/build_space
           
-          # 1. PREPARE WORKSPACE (Already confirmed these paths work)
+          # 1. SETUP ENVIRONMENT
           TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           find . -name "Lacie_Engine.dll" | grep "Release" | xargs -I {} cp {} ios/manual_aot/build_space/
           find . -name "*.dll" ! -path "./ios/*" ! -path "./.mono/*" -exec cp {} ios/manual_aot/build_space/ \;
           cp GodotSharp/Api/Release/*.dll ios/manual_aot/build_space/ || true
 
-          # 2. DEFINE THE COMPILER AND LLVM
-          # We use the Mono MDK compiler
-          AOT_COMPILER="/Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen"
-          
-          # We point to Xcode's LLVM toolchain
-          export LLVM_PATH="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin"
-          
-          # 3. RUN AOT WITH FORCED LLVM ARM64
+          # 2. RUN AOT VIA DIRECT MONO EXECUTION
+          # We tell Godot to run the Mono AOT compiler directly without starting the engine
           export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch:$(pwd)/ios/manual_aot/build_space"
-          cd ios/manual_aot/build_space
           
-          echo "Starting AOT with LLVM back-end..."
-          # The 'llvm' flag is the secret to getting ARM64 instead of x86
-          $AOT_COMPILER --aot=full,static,asmonly,direct-icalls,nodebug,llvm,mtriple=arm64-ios Lacie_Engine.dll
+          echo "Executing AOT via Godot's internal Mono bridge..."
+          godot --headless --no-window \
+            --export-debug "iOS" /dev/null \
+            --extra-aot-args "full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios" \
+            Lacie_Engine.dll || true
+
+          # 3. CHECK FOR THE ASSEMBLY
+          # When called this way, Godot sometimes drops the file in the same folder as the DLL
+          cd ios/manual_aot
+          ASM_FILE=$(find .. -name "Lacie_Engine.dll.s" | head -n 1)
           
-          # 4. CONVERT TO LIBRARY
-          cd ..
-          ASM_FILE="build_space/Lacie_Engine.dll.s"
-          
+          if [ -z "$ASM_FILE" ]; then
+            echo "⚠️ Godot bridge failed. Trying one last 'Clean' Mono call..."
+            # Using the system mono but WITHOUT the LLVM flag, letting Clang handle the heavy lifting
+            /Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen \
+              --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios \
+              build_space/Lacie_Engine.dll
+            ASM_FILE=$(find . -name "Lacie_Engine.dll.s" | head -n 1)
+          fi
+
+          # 4. THE CLANG TRICK
+          # Even if Mono generates "weird" assembly, Clang is often smart enough to 
+          # translate it if we provide the right SDK path.
           if [ -f "$ASM_FILE" ]; then
-            echo "✅ ARM64 Assembly generated. Linking via Clang..."
+            echo "✅ Assembly found. Attempting Apple Clang Translation..."
             clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
               -arch arm64 -miphoneos-version-min=12.0 \
               -c "$ASM_FILE" -o libproject_assembly.o
             
             ar rcs libproject_assembly.a libproject_assembly.o
-            echo "✅ libproject_assembly.a created successfully."
+            echo "✅ Done!"
           else
-            echo "❌ AOT failed to produce assembly."
+            echo "❌ All AOT methods failed."
             exit 1
           fi
 
-          # 5. VERIFY
           lipo -info libproject_assembly.a
           
       - name: Create Godot Mono Setup Bridge
