@@ -60,6 +60,8 @@ jobs:
         run: |
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
+
+          dotnet restore Lacie_Engine.csproj
           
           # 1. Build the DLLs using standard MSBuild (part of the Mono MDK)
           # We need the Release DLLs before we can AOT them
