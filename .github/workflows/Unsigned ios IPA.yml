@@ -61,40 +61,42 @@ jobs:
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot
           
-          # 1. CLEAN & RESTORE
-          dotnet clean Lacie_Engine.csproj
-          dotnet restore Lacie_Engine.csproj
+          # 1. SETUP THE COMPILER
+          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
-          # 2. BUILD DLL (Using dotnet msbuild to avoid NETSDK1073)
-          # This creates the .dll without crashing on the FrameworkReference
-          dotnet msbuild Lacie_Engine.csproj /p:Configuration=Release /p:Platform=AnyCPU
+          # Unzip the iPhone specific tools if not already done
+          if [ -f "$TEMPLATE_DIR/iphone.zip" ]; then
+            echo "Extracting iPhone AOT tools..."
+            unzip -q -o "$TEMPLATE_DIR/iphone.zip" -d "$TEMPLATE_DIR/iphone_extracted"
+          fi
           
-          # 3. LOCATE THE CROSS-COMPILER
-          # Searching the templates directory for the specific Godot tool
-          AOT_COMPILER=$(find "$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono" -name "aot-compiler-arm64" | head -n 1)
+          # Find the actual cross-compiler binary
+          AOT_COMPILER=$(find "$TEMPLATE_DIR/iphone_extracted" -name "aot-compiler-arm64" | head -n 1)
           
           if [ -z "$AOT_COMPILER" ]; then
-            echo "❌ Still can't find aot-compiler-arm64! Checking template path..."
-            ls -R "$HOME/Library/Application Support/Godot/templates/"
+            echo "❌ CRITICAL: aot-compiler-arm64 not found even after unzipping!"
             exit 1
           fi
+          echo "✅ Found AOT Compiler: $AOT_COMPILER"
 
-          # 4. FIND THE GENERATED DLL
-          # It might be in bin/Release or .mono/temp/bin/Release/
-          DLL_PATH=$(find . -name "Lacie_Engine.dll" | grep Release | head -n 1)
-          echo "✅ Found DLL at: $DLL_PATH"
-
-          # 5. EXECUTE AOT (The Static Library)
+          # 2. PERFORM THE AOT
+          # Use the DLL that was just built in the .mono folder
+          DLL_PATH="./.mono/temp/bin/Release/ios-arm64/Lacie_Engine.dll"
+          
+          # We need to set the MONO_PATH so the compiler can find mscorlib.dll and others
+          export MONO_PATH="$TEMPLATE_DIR/bcl/monotouch"
+          
           $AOT_COMPILER --llvm --arm64 \
             --staticlib \
             -o ios/manual_aot/libproject_assembly.a \
             "$DLL_PATH"
           
-          # 6. COPY DLLs FOR THE IPA
-          # We need these next to the binary in the final app
-          find . -name "*.dll" -path "*/Release/*" -exec cp {} ios/manual_aot/ \;
+          # 3. COLLECT EVERYTHING FOR XCODE
+          cp "$DLL_PATH" ios/manual_aot/
+          # Copy the standard libraries Xcode will look for
+          cp "$TEMPLATE_DIR/bcl/monotouch/"*.dll ios/manual_aot/
           
-          echo "Final check of the assembly library:"
+          echo "Verifying Static Library:"
           lipo -info ios/manual_aot/libproject_assembly.a
 
       - name: Locate and Rename Library
