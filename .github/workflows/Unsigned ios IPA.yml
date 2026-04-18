@@ -57,58 +57,51 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Manual AOT (Template-Based)
+      - name: Direct Mono AOT (Bypass Godot Engine)
         run: |
-          # 1. PATHS (Pointing to the exact folder from your screenshot)
+          rm -rf ios/manual_aot
+          mkdir -p ios/manual_aot/build_space
+          
+          # 1. SETUP PATHS
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          # This is the critical folder for iOS AOT
           BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           
-          # This is the directory we will work in
-          mkdir -p ios/manual_aot
-          
           # 2. COLLECT DLLS
-          # We need your game engine and the Godot API DLLs in one spot
-          cp .mono/assemblies/Release/Lacie_Engine.dll ios/manual_aot/
-          cp .mono/assemblies/Release/GodotSharp.dll ios/manual_aot/
-          # Copy any other project DLLs if you have them (e.g. Newtonsoft)
-          find . -name "*.dll" -maxdepth 3 -exec cp {} ios/manual_aot/ \;
+          cp .mono/assemblies/Release/Lacie_Engine.dll ios/manual_aot/build_space/
+          cp .mono/assemblies/Release/GodotSharp.dll ios/manual_aot/build_space/
+          # Copy everything else from the assemblies folder
+          cp .mono/assemblies/Release/*.dll ios/manual_aot/build_space/ || true
 
-          # 3. RUN THE AOT COMPILER MANUALLY
-          # We set MONO_PATH so it finds the 'monotouch' (iOS) versions of System DLLs
-          export MONO_PATH="$BCL_DIR:$(pwd)/ios/manual_aot"
+          # 3. RUN MONO DIRECTLY AS A COMPILER
+          # We set MONO_PATH to the iOS BCL so it doesn't use the Mac's desktop libraries
+          export MONO_PATH="$BCL_DIR:$(pwd)/ios/manual_aot/build_space"
           
-          echo "Cross-compiling Lacie_Engine.dll to ARM64 Assembly..."
-          
-          # Use the Godot binary as a compiler directly. 
-          # --aot-batch is the secret sauce here.
-          godot --headless --no-window --aot-batch Lacie_Engine.dll \
-            --aot-output-dir "$(pwd)/ios/manual_aot" \
-            --aot-target arm64-apple-ios12.0 \
-            --aot-compiler-args "full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios" || true
-          
-          # Godot hangs on the cert error, so we give it 20 seconds to finish writing the .s file
-          sleep 20
-          pkill -9 godot || true
+          echo "Running Mono AOT compiler for ARM64..."
+          # We use the mono-sgen binary to compile the DLL into a .s assembly file
+          # We MUST use the 'full,static' flags for iOS
+          /Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen \
+            --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios \
+            ios/manual_aot/build_space/Lacie_Engine.dll
 
-          # 4. CONVERT ASSEMBLY TO STATIC LIBRARY
+          # 4. CONVERT TO STATIC LIBRARY (.a)
           cd ios/manual_aot
-          if [ -f "Lacie_Engine.dll.s" ]; then
-            echo "✅ Success: ARM64 Assembly generated."
+          if [ -f "build_space/Lacie_Engine.dll.s" ]; then
+            echo "✅ ARM64 Assembly generated!"
             
-            # Use Clang (Mac's tool) to assemble it
+            # Assemble the .s into a .o using the iPhone SDK
             clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
               -arch arm64 -miphoneos-version-min=12.0 \
-              -c Lacie_Engine.dll.s -o libproject_assembly.o
+              -c build_space/Lacie_Engine.dll.s -o libproject_assembly.o
             
-            # Create the .a file Xcode wants
+            # Create the static archive Xcode is looking for
             ar rcs libproject_assembly.a libproject_assembly.o
             
-            # Move it to where the final Xcode step expects it
+            # Put it in the root of the ios folder for the final build step
             cp libproject_assembly.a ../
-            echo "✅ libproject_assembly.a is ready for Xcode."
+            echo "✅ libproject_assembly.a is ready for the link step."
           else
-            echo "❌ Failed to generate .s file. Checking logs..."
-            ls -R
+            echo "❌ Mono AOT failed to create the .s file."
             exit 1
           fi
           
