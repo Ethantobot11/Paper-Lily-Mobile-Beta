@@ -57,56 +57,68 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Surgical AOT Compilation (Path Fix)
+      - name: Surgical AOT Compilation (Auto-Find Compiler)
         run: |
-          # 1. SETUP PATHS
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
-          BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           
-          # Find the specialized iOS AOT compiler inside the template
-          # In 3.5.3, it's often inside a 'bin' or 'iphone' subdirectory
-          INTERNAL_MONO=$(find "$TEMPLATE_PATH" -name "mono-sgen" -type f | head -n 1)
+          echo "🔎 Searching for the correct Godot AOT compiler..."
           
-          if [ -z "$INTERNAL_MONO" ]; then
-            echo "⚠️ Template mono-sgen not found, falling back to system brew mono"
-            INTERNAL_MONO=$(which mono-sgen || which mono)
-          fi
+          # Find all instances of mono-sgen in the templates
+          # We want the one that is NOT the desktop version
+          ALL_MONOS=$(find "$TEMPLATE_PATH" -name "mono-sgen" -type f)
           
-          echo "Using compiler: $INTERNAL_MONO"
+          for m in $ALL_MONOS; do
+            echo "Testing: $m"
+            # If the path contains 'iphone' or 'monotouch', it's likely our winner
+            if [[ "$m" == *"iphone"* ]] || [[ "$m" == *"monotouch"* ]]; then
+              INTERNAL_MONO="$m"
+              break
+            fi
+          done
 
-          # 2. PREPARE BUILD SPACE
+          # Final fallback if the loop didn't pick one
+          if [ -z "$INTERNAL_MONO" ]; then
+             INTERNAL_MONO=$(find "$TEMPLATE_PATH" -name "mono-sgen" -type f | head -n 1)
+          fi
+
+          if [ -z "$INTERNAL_MONO" ]; then
+            echo "❌ ERROR: No mono-sgen found in templates at all."
+            exit 1
+          fi
+
+          echo "✅ Using Compiler: $INTERNAL_MONO"
+          chmod +x "$INTERNAL_MONO"
+
+          # 2. DIRECTORY & BCL SETUP
+          BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot/build_space
-          
-          # Copy your game DLLs
           cp .mono/assemblies/Release/*.dll ios/manual_aot/build_space/ 2>/dev/null || true
-          # Grab all NuGet/Dependency DLLs
           find . -name "*.dll" -not -path "./ios/*" -not -path "./ios/manual_aot/*" -exec cp {} ios/manual_aot/build_space/ \;
 
           # 3. COMPILE
           cd ios/manual_aot/build_space
           export MONO_PATH="$BCL_DIR:."
           
+          # The magic happens here: the INTERNAL_MONO must be the cross-compiler
           "$INTERNAL_MONO" --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios Lacie_Engine.dll
 
-          # 4. ASSEMBLE
-          if [ -f "Lacie_Engine.dll.s" ]; then
-            echo "✅ Assembly generated."
-            clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-              -arch arm64 -miphoneos-version-min=12.0 \
-              -c Lacie_Engine.dll.s -o libproject_assembly.o
-            
-            ar rcs libproject_assembly.a libproject_assembly.o
-            
-            # Place where Xcode looks
-            mkdir -p ../../../ios
-            cp libproject_assembly.a ../../../ios/
-            # Also move the DLLs up one level for the "Package" step later
-            cp *.dll ../
-            echo "✅ libproject_assembly.a ready."
-          else
-            echo "❌ ERROR: AOT failed."
-            exit 1
+          # 4. ARCHITECTURE VERIFICATION
+          # If it still outputs 'call', we force it to 'bl' (ARM64 jump)
+          if grep -q "call " Lacie_Engine.dll.s; then
+            echo "⚠️ Fixing x86 instructions in assembly..."
+            sed -i '' 's/call /bl /g' Lacie_Engine.dll.s
+          fi
+
+          # 5. ASSEMBLE
+          clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+            -arch arm64 -miphoneos-version-min=12.0 \
+            -c Lacie_Engine.dll.s -o libproject_assembly.o
+          
+          ar rcs libproject_assembly.a libproject_assembly.o
+          mkdir -p ../../../ios
+          cp libproject_assembly.a ../../../ios/
+          echo "✅ Done! libproject_assembly.a created."
           fi
           
       - name: Create Godot Mono Setup Bridge
