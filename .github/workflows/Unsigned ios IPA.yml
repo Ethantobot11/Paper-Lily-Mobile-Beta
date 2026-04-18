@@ -57,49 +57,43 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Manual C# AOT (Low-Level)
+      - name: Force AOT via Project Export
         run: |
+          # 1. Clean previous attempts
           rm -rf ios/manual_aot
-          mkdir -p ios/manual_aot/build_space
+          mkdir -p ios/manual_aot
           
-          # 1. SETUP BCL
-          TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
-          BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
-          
-          # 2. GATHER DLLS
-          # We need to make sure GodotSharp and Lacie_Engine are in the same directory
-          find . -name "Lacie_Engine.dll" | grep "Release" | xargs -I {} cp {} ios/manual_aot/build_space/
-          find . -name "*.dll" ! -path "./ios/*" ! -path "./.mono/*" -exec cp {} ios/manual_aot/build_space/ \;
-          cp GodotSharp/Api/Release/*.dll ios/manual_aot/build_space/ || true
+          # 2. Run the export to a folder
+          # We export to 'ios/game.xcodeproj'. Godot will perform AOT 
+          # during this process.
+          echo "Starting export (AOT phase)..."
+          godot --headless --no-window --export-debug "iOS" ios/game.xcodeproj || echo "Export returned error, checking for files anyway..."
 
-          # 3. TRIGGER AOT VIA THE MONO RUNTIME DIRECTLY
-          # Since Godot-as-compiler is crashing, we use the mono-sgen bundled inside the template
-          # This is the most stable way to avoid 'native == null' crashes.
-          export MONO_PATH="$BCL_DIR:$(pwd)/ios/manual_aot/build_space"
+          # 3. Hunt for the generated library
+          # Godot hides the compiled code in .mono/temp/bin/Release/ios-arm64/ 
+          # OR inside the Xcode project folder itself.
+          echo "Searching for libproject_assembly.a..."
           
-          echo "Running Mono AOT Cross-Compiler..."
+          # Priority 1: The official temp location
+          GEN_LIB=$(find .mono/temp -name "libproject_assembly.a" | head -n 1)
           
-          # We use the system Mono but point it to the iOS libraries. 
-          # Note: We remove 'llvm' to avoid the library missing error from earlier.
-          mono-sgen --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios \
-            ios/manual_aot/build_space/Lacie_Engine.dll
+          # Priority 2: Inside the generated Xcode project
+          if [ -z "$GEN_LIB" ]; then
+            GEN_LIB=$(find ios/game.xcodeproj -name "libproject_assembly.a" | head -n 1)
+          fi
 
-          # 4. CONVERT TO STATIC LIBRARY
-          cd ios/manual_aot
-          if [ -f "build_space/Lacie_Engine.dll.s" ]; then
-            echo "✅ ARM64 Assembly generated!"
+          if [ -n "$GEN_LIB" ]; then
+            echo "✅ Found static library: $GEN_LIB"
+            cp "$GEN_LIB" ios/libproject_assembly.a
             
-            clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-              -arch arm64 -miphoneos-version-min=12.0 \
-              -c build_space/Lacie_Engine.dll.s -o libproject_assembly.o
+            # Also grab the DLLs that go with it
+            find .mono/temp -name "*.dll" -exec cp {} ios/ \;
             
-            ar rcs libproject_assembly.a libproject_assembly.o
-            
-            # This 'cp' is vital: Xcode is looking for it in the root of 'ios/' usually
-            cp libproject_assembly.a ../ios/
-            echo "✅ Library copied to ios/ folder for Xcode."
+            echo "Final Architecture Check:"
+            lipo -info ios/libproject_assembly.a
           else
-            echo "❌ AOT failed to produce .s file."
+            echo "❌ Export did not produce the library. Listing .mono contents for debug:"
+            find .mono -maxdepth 4
             exit 1
           fi
           
