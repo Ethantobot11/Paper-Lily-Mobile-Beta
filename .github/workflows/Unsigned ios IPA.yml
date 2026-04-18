@@ -57,43 +57,58 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Force AOT via Project Export
+      - name: Manual AOT (Template-Based)
         run: |
-          # 1. Clean previous attempts
-          rm -rf ios/manual_aot
+          # 1. PATHS (Pointing to the exact folder from your screenshot)
+          TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
+          BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
+          
+          # This is the directory we will work in
           mkdir -p ios/manual_aot
           
-          # 2. Run the export to a folder
-          # We export to 'ios/game.xcodeproj'. Godot will perform AOT 
-          # during this process.
-          echo "Starting export (AOT phase)..."
-          godot --headless --no-window --export-debug "iOS" ios/game.xcodeproj || echo "Export returned error, checking for files anyway..."
+          # 2. COLLECT DLLS
+          # We need your game engine and the Godot API DLLs in one spot
+          cp .mono/assemblies/Release/Lacie_Engine.dll ios/manual_aot/
+          cp .mono/assemblies/Release/GodotSharp.dll ios/manual_aot/
+          # Copy any other project DLLs if you have them (e.g. Newtonsoft)
+          find . -name "*.dll" -maxdepth 3 -exec cp {} ios/manual_aot/ \;
 
-          # 3. Hunt for the generated library
-          # Godot hides the compiled code in .mono/temp/bin/Release/ios-arm64/ 
-          # OR inside the Xcode project folder itself.
-          echo "Searching for libproject_assembly.a..."
+          # 3. RUN THE AOT COMPILER MANUALLY
+          # We set MONO_PATH so it finds the 'monotouch' (iOS) versions of System DLLs
+          export MONO_PATH="$BCL_DIR:$(pwd)/ios/manual_aot"
           
-          # Priority 1: The official temp location
-          GEN_LIB=$(find .mono/temp -name "libproject_assembly.a" | head -n 1)
+          echo "Cross-compiling Lacie_Engine.dll to ARM64 Assembly..."
           
-          # Priority 2: Inside the generated Xcode project
-          if [ -z "$GEN_LIB" ]; then
-            GEN_LIB=$(find ios/game.xcodeproj -name "libproject_assembly.a" | head -n 1)
-          fi
+          # Use the Godot binary as a compiler directly. 
+          # --aot-batch is the secret sauce here.
+          godot --headless --no-window --aot-batch Lacie_Engine.dll \
+            --aot-output-dir "$(pwd)/ios/manual_aot" \
+            --aot-target arm64-apple-ios12.0 \
+            --aot-compiler-args "full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios" || true
+          
+          # Godot hangs on the cert error, so we give it 20 seconds to finish writing the .s file
+          sleep 20
+          pkill -9 godot || true
 
-          if [ -n "$GEN_LIB" ]; then
-            echo "✅ Found static library: $GEN_LIB"
-            cp "$GEN_LIB" ios/libproject_assembly.a
+          # 4. CONVERT ASSEMBLY TO STATIC LIBRARY
+          cd ios/manual_aot
+          if [ -f "Lacie_Engine.dll.s" ]; then
+            echo "✅ Success: ARM64 Assembly generated."
             
-            # Also grab the DLLs that go with it
-            find .mono/temp -name "*.dll" -exec cp {} ios/ \;
+            # Use Clang (Mac's tool) to assemble it
+            clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+              -arch arm64 -miphoneos-version-min=12.0 \
+              -c Lacie_Engine.dll.s -o libproject_assembly.o
             
-            echo "Final Architecture Check:"
-            lipo -info ios/libproject_assembly.a
+            # Create the .a file Xcode wants
+            ar rcs libproject_assembly.a libproject_assembly.o
+            
+            # Move it to where the final Xcode step expects it
+            cp libproject_assembly.a ../
+            echo "✅ libproject_assembly.a is ready for Xcode."
           else
-            echo "❌ Export did not produce the library. Listing .mono contents for debug:"
-            find .mono -maxdepth 4
+            echo "❌ Failed to generate .s file. Checking logs..."
+            ls -R
             exit 1
           fi
           
