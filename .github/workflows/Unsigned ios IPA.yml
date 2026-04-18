@@ -57,38 +57,47 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Execute ARM64 AOT Compilation (Path Stability Fix)
+      - name: Surgical AOT Compilation (Combined Step)
         run: |
+          # 1. SETUP PATHS
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           INTERNAL_MONO=$(find "$TEMPLATE_PATH" -name "mono-sgen" | head -n 1)
           
-          # Move into the folder so all DLLs are local to the command
-          cd ios/manual_aot/build_space
+          # 2. CREATE AND FILL DIRECTORY
+          echo "Preparing build space..."
+          rm -rf ios/manual_aot
+          mkdir -p ios/manual_aot/build_space
           
-          # Use absolute path for BCL but local path for the current dir
+          # Copy DLLs from the Godot build output
+          cp .mono/assemblies/Release/*.dll ios/manual_aot/build_space/ 2>/dev/null || true
+          # Find any other scattered DLLs (Newtonsoft, etc.) and bring them in
+          find . -name "*.dll" -not -path "./ios/*" -not -path "./ios/manual_aot/*" -exec cp {} ios/manual_aot/build_space/ \;
+
+          # 3. MOVE IN AND COMPILE
+          cd ios/manual_aot/build_space
           export MONO_PATH="$BCL_DIR:."
           
-          echo "Compiling Lacie_Engine.dll..."
-          # Running the compiler on the local file
+          echo "Starting Mono AOT for Lacie_Engine.dll..."
           "$INTERNAL_MONO" --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios Lacie_Engine.dll
 
+          # 4. VERIFY AND ASSEMBLE
           if [ -f "Lacie_Engine.dll.s" ]; then
-            echo "✅ Assembly file generated."
+            echo "✅ Assembly generated. Converting to static library..."
             
-            # Assemble with Clang using the iPhone SDK
             clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
               -arch arm64 -miphoneos-version-min=12.0 \
               -c Lacie_Engine.dll.s -o libproject_assembly.o
             
-            # Create the static library
             ar rcs libproject_assembly.a libproject_assembly.o
             
-            # Place it where the Godot Xcode project expects it (ios/ folder)
+            # Place in the final destination for Xcode
+            mkdir -p ../../../ios
             cp libproject_assembly.a ../../../ios/
-            echo "✅ libproject_assembly.a is ready in the ios/ directory."
+            echo "✅ SUCCESS: libproject_assembly.a is ready for Xcode."
           else
-            echo "❌ AOT failed. Assembly file not found."
+            echo "❌ ERROR: AOT compiler did not produce an assembly file."
+            ls -la  # List files to see what actually happened
             exit 1
           fi
           
