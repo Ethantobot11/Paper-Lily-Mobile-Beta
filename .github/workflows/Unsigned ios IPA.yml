@@ -57,51 +57,50 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Manual C# AOT (Fixed Boot)
+      - name: Manual C# AOT (Low-Level)
         run: |
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot/build_space
           
+          # 1. SETUP BCL
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           
-          # Collect DLLs
+          # 2. GATHER DLLS
+          # We need to make sure GodotSharp and Lacie_Engine are in the same directory
           find . -name "Lacie_Engine.dll" | grep "Release" | xargs -I {} cp {} ios/manual_aot/build_space/
           find . -name "*.dll" ! -path "./ios/*" ! -path "./.mono/*" -exec cp {} ios/manual_aot/build_space/ \;
           cp GodotSharp/Api/Release/*.dll ios/manual_aot/build_space/ || true
 
+          # 3. TRIGGER AOT VIA THE MONO RUNTIME DIRECTLY
+          # Since Godot-as-compiler is crashing, we use the mono-sgen bundled inside the template
+          # This is the most stable way to avoid 'native == null' crashes.
           export MONO_PATH="$BCL_DIR:$(pwd)/ios/manual_aot/build_space"
           
-          echo "Triggering AOT without booting game logic..."
+          echo "Running Mono AOT Cross-Compiler..."
           
-          # We add '--editor' or a dummy scene path to prevent Initializer.cs from running
-          godot --headless --no-window --editor \
-            --aot-batch Lacie_Engine.dll \
-            --aot-output-dir "$(pwd)/ios/manual_aot" \
-            --aot-target arm64-apple-ios12.0 \
-            --aot-compiler-args "full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios" || true
+          # We use the system Mono but point it to the iOS libraries. 
+          # Note: We remove 'llvm' to avoid the library missing error from earlier.
+          mono-sgen --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios \
+            ios/manual_aot/build_space/Lacie_Engine.dll
 
-          # Give it a moment to write the assembly
-          sleep 30
-          pkill -9 godot || true
-
-          # Check if the .s file finally exists
-          if [ -f "ios/manual_aot/Lacie_Engine.dll.s" ]; then
-            echo "✅ Assembly generated successfully!"
-            cd ios/manual_aot
+          # 4. CONVERT TO STATIC LIBRARY
+          cd ios/manual_aot
+          if [ -f "build_space/Lacie_Engine.dll.s" ]; then
+            echo "✅ ARM64 Assembly generated!"
+            
             clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
               -arch arm64 -miphoneos-version-min=12.0 \
-              -c Lacie_Engine.dll.s -o libproject_assembly.o
+              -c build_space/Lacie_Engine.dll.s -o libproject_assembly.o
+            
             ar rcs libproject_assembly.a libproject_assembly.o
+            
+            # This 'cp' is vital: Xcode is looking for it in the root of 'ios/' usually
+            cp libproject_assembly.a ../ios/
+            echo "✅ Library copied to ios/ folder for Xcode."
           else
-            echo "❌ Still failed. Trying fallback: Running Godot on a non-existent scene..."
-            godot --headless --no-window "res://non_existent_scene.tscn" \
-              --aot-batch Lacie_Engine.dll \
-              --aot-output-dir "$(pwd)/ios/manual_aot" \
-              --aot-target arm64-apple-ios12.0 \
-              --aot-compiler-args "full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios" || true
-            sleep 30
-            pkill -9 godot || true
+            echo "❌ AOT failed to produce .s file."
+            exit 1
           fi
           
       - name: Create Godot Mono Setup Bridge
