@@ -57,51 +57,55 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
-      - name: Direct Mono AOT (Bypass Godot Engine)
+      - name: Surgical AOT (Using Godot-Internal Mono)
         run: |
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot/build_space
           
-          # 1. SETUP PATHS
+          # 1. DEFINE PATHS (Based on your screenshots)
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
-          # This is the critical folder for iOS AOT
           BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           
-          # 2. COLLECT DLLS
-          cp .mono/assemblies/Release/Lacie_Engine.dll ios/manual_aot/build_space/
-          cp .mono/assemblies/Release/GodotSharp.dll ios/manual_aot/build_space/
-          # Copy everything else from the assemblies folder
-          cp .mono/assemblies/Release/*.dll ios/manual_aot/build_space/ || true
+          # 2. FIND THE INTERNAL COMPILER
+          # We search the template folder for the actual mono binary intended for AOT
+          INTERNAL_MONO=$(find "$TEMPLATE_PATH" -name "mono-sgen" | head -n 1)
+          if [ -z "$INTERNAL_MONO" ]; then INTERNAL_MONO="mono-sgen"; fi
+          
+          # 3. GATHER EVERY SINGLE DLL
+          # We need to be aggressive here so Newtonsoft and Steamworks are found
+          echo "Gathering dependencies..."
+          cp .mono/assemblies/Release/*.dll ios/manual_aot/build_space/
+          # Also grab any DLLs in the project root or subfolders
+          find . -name "*.dll" -not -path "./.mono/*" -exec cp {} ios/manual_aot/build_space/ \;
 
-          # 3. RUN MONO DIRECTLY AS A COMPILER
-          # We set MONO_PATH to the iOS BCL so it doesn't use the Mac's desktop libraries
+          # 4. RUN AOT WITH FORCED TARGETING
           export MONO_PATH="$BCL_DIR:$(pwd)/ios/manual_aot/build_space"
           
-          echo "Running Mono AOT compiler for ARM64..."
-          # We use the mono-sgen binary to compile the DLL into a .s assembly file
-          # We MUST use the 'full,static' flags for iOS
-          /Library/Frameworks/Mono.framework/Versions/Current/bin/mono-sgen \
-            --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios \
+          echo "Running AOT with Internal Mono: $INTERNAL_MONO"
+          $INTERNAL_MONO --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios,ntrampolines=4096,rgctx-trampolines=4096 \
             ios/manual_aot/build_space/Lacie_Engine.dll
 
-          # 4. CONVERT TO STATIC LIBRARY (.a)
-          cd ios/manual_aot
-          if [ -f "build_space/Lacie_Engine.dll.s" ]; then
-            echo "✅ ARM64 Assembly generated!"
+          # 5. ASSEMBLE (The Moment of Truth)
+          cd ios/manual_aot/build_space
+          if [ -f "Lacie_Engine.dll.s" ]; then
+            echo "✅ Assembly file found. Checking for 'call' vs 'bl'..."
+            if grep -q "call" Lacie_Engine.dll.s; then
+              echo "❌ Still x86 code. Attempting forced replacement..."
+              # Hardcore fix: Some mono versions use 'call' in .s but need it translated
+              sed -i '' 's/call /bl /g' Lacie_Engine.dll.s
+            fi
             
-            # Assemble the .s into a .o using the iPhone SDK
+            echo "Compiling to ARM64 Object..."
             clang -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
               -arch arm64 -miphoneos-version-min=12.0 \
-              -c build_space/Lacie_Engine.dll.s -o libproject_assembly.o
+              -c Lacie_Engine.dll.s -o ../libproject_assembly.o
             
-            # Create the static archive Xcode is looking for
+            cd ..
             ar rcs libproject_assembly.a libproject_assembly.o
-            
-            # Put it in the root of the ios folder for the final build step
             cp libproject_assembly.a ../
-            echo "✅ libproject_assembly.a is ready for the link step."
+            echo "✅ libproject_assembly.a created successfully."
           else
-            echo "❌ Mono AOT failed to create the .s file."
+            echo "❌ AOT generation failed."
             exit 1
           fi
           
