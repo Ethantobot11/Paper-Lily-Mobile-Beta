@@ -1,8 +1,7 @@
 Welcome to an unnoficial mobile port of lily to Android and iOS
 
 Created by 
-Ethantobot :           
-                      <img width="60" height="60" alt="156458071" src="https://github.com/user-attachments/assets/6b55588e-151d-437b-8ff6-eaada6556d9f" />
+Ethantobot :                     <img width="60" height="60" alt="156458071" src="https://github.com/user-attachments/assets/6b55588e-151d-437b-8ff6-eaada6556d9f" />
 
 
 and 
