@@ -48,12 +48,19 @@ jobs:
           mv Lacie_Engine.csproj Lacie_Engine.csproj.bak
           mv Lacie_Engine.sln Lacie_Engine.sln.bak
           
-          godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" --no-build --no-sign || true
+          # Note: Godot 3.5 ignores --no-build. It will fail at the archive stage, 
+          # but the .xcodeproj will still be successfully generated.
+          godot --path . --headless --verbose --export "iOS" "ios/game.xcodeproj" || true
           
           # Restore C# files for our manual AOT step
           mv Lacie_Engine.csproj.bak Lacie_Engine.csproj
           mv Lacie_Engine.sln.bak Lacie_Engine.sln
-          
+
+      - name: Build C# Assemblies Manually
+        run: |
+          # Since we skipped Godot's build, we must compile the C# project ourselves
+          dotnet build Lacie_Engine.sln -c Release
+
       - name: Install iOS Workload
         run: dotnet workload install ios
 
@@ -61,28 +68,25 @@ jobs:
         run: |
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
           
+          # The AOT compilers are located in the Godot Editor bundle, NOT the templates
+          AOT_COMPILERS_DIR="./GodotSharp/Tools/aot-compilers"
+          
           echo "🔎 Searching for the correct Godot AOT compiler..."
           
-          # Find all instances of mono-sgen in the templates
-          # We want the one that is NOT the desktop version
-          ALL_MONOS=$(find "$TEMPLATE_PATH" -name "mono-sgen" -type f)
+          # Search for the specific iOS cross-compiler name
+          INTERNAL_MONO=$(find "$AOT_COMPILERS_DIR" -name "aarch64-apple-darwin-mono-sgen" -type f | head -n 1)
           
-          for m in $ALL_MONOS; do
-            echo "Testing: $m"
-            # If the path contains 'iphone' or 'monotouch', it's likely our winner
-            if [[ "$m" == *"iphone"* ]] || [[ "$m" == *"monotouch"* ]]; then
-              INTERNAL_MONO="$m"
-              break
-            fi
-          done
-
-          # Final fallback if the loop didn't pick one
+          # Fallback: If not found in the editor bundle, download it
           if [ -z "$INTERNAL_MONO" ]; then
-             INTERNAL_MONO=$(find "$TEMPLATE_PATH" -name "mono-sgen" -type f | head -n 1)
+             echo "❌ Compiler not found in editor bundle. Downloading fallback..."
+             curl -L -o ios-cross-arm64.zip "https://github.com/godotengine/godot-mono-builds/releases/download/release-4912f62/ios-cross-arm64.zip"
+             mkdir -p "$AOT_COMPILERS_DIR"
+             unzip -q -o ios-cross-arm64.zip -d "$AOT_COMPILERS_DIR"
+             INTERNAL_MONO=$(find "$AOT_COMPILERS_DIR" -name "aarch64-apple-darwin-mono-sgen" -type f | head -n 1)
           fi
-
+          
           if [ -z "$INTERNAL_MONO" ]; then
-            echo "❌ ERROR: No mono-sgen found in templates at all."
+            echo "❌ ERROR: No aarch64-apple-darwin-mono-sgen found."
             exit 1
           fi
 
@@ -93,7 +97,9 @@ jobs:
           BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
           rm -rf ios/manual_aot
           mkdir -p ios/manual_aot/build_space
-          cp .mono/assemblies/Release/*.dll ios/manual_aot/build_space/ 2>/dev/null || true
+          
+          # Copy the newly built DLL from your dotnet build!
+          cp bin/Release/netstandard2.1/Lacie_Engine.dll ios/manual_aot/build_space/ 2>/dev/null || true
           find . -name "*.dll" -not -path "./ios/*" -not -path "./ios/manual_aot/*" -exec cp {} ios/manual_aot/build_space/ \;
 
           # 3. COMPILE
@@ -104,7 +110,6 @@ jobs:
           "$INTERNAL_MONO" --aot=full,static,asmonly,direct-icalls,nodebug,mtriple=arm64-ios Lacie_Engine.dll
 
           # 4. ARCHITECTURE VERIFICATION
-          # If it still outputs 'call', we force it to 'bl' (ARM64 jump)
           if grep -q "call " Lacie_Engine.dll.s; then
             echo "⚠️ Fixing x86 instructions in assembly..."
             sed -i '' 's/call /bl /g' Lacie_Engine.dll.s
@@ -119,7 +124,6 @@ jobs:
           mkdir -p ../../../ios
           cp libproject_assembly.a ../../../ios/
           echo "✅ Done! libproject_assembly.a created."
-          fi
           
       - name: Create Godot Mono Setup Bridge
         run: |
