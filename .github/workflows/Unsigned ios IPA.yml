@@ -64,24 +64,28 @@ jobs:
       - name: Install iOS Workload
         run: dotnet workload install ios
 
+      - name: Install Rosetta 2 (Required for x86_64 AOT compiler on Apple Silicon)
+        run: |
+          softwareupdate --install-rosetta --agree-to-license || true
+
       - name: Surgical AOT Compilation (Auto-Find Compiler)
         run: |
           TEMPLATE_PATH="$HOME/Library/Application Support/Godot/templates/3.5.3.stable.mono"
-          
-          # The AOT compilers are located in the Godot Editor bundle, NOT the templates
           AOT_COMPILERS_DIR="./GodotSharp/Tools/aot-compilers"
           
           echo "🔎 Searching for the correct Godot AOT compiler..."
           
-          # Search for the specific iOS cross-compiler name
-          INTERNAL_MONO=$(find "$AOT_COMPILERS_DIR" -name "aarch64-apple-darwin-mono-sgen" -type f | head -n 1)
+          # Search for the specific iOS cross-compiler name anywhere in the AOT dir
+          INTERNAL_MONO=$(find "$AOT_COMPILERS_DIR" -name "aarch64-apple-darwin-mono-sgen" -type f 2>/dev/null | head -n 1)
           
-          # Fallback: If not found in the editor bundle, download it
+          # Fallback: If not found, download and extract it
           if [ -z "$INTERNAL_MONO" ]; then
-             echo "❌ Compiler not found in editor bundle. Downloading fallback..."
+             echo "⬇️ Compiler not found. Downloading fallback cross-compiler..."
              curl -L -o ios-cross-arm64.zip "https://github.com/godotengine/godot-mono-builds/releases/download/release-4912f62/ios-cross-arm64.zip"
              mkdir -p "$AOT_COMPILERS_DIR"
              unzip -q -o ios-cross-arm64.zip -d "$AOT_COMPILERS_DIR"
+             
+             # Search again after extraction (it might be nested in ios-cross-arm64-release/bin/)
              INTERNAL_MONO=$(find "$AOT_COMPILERS_DIR" -name "aarch64-apple-darwin-mono-sgen" -type f | head -n 1)
           fi
           
@@ -92,6 +96,12 @@ jobs:
 
           echo "✅ Using Compiler: $INTERNAL_MONO"
           chmod +x "$INTERNAL_MONO"
+
+          # Quick verification that it can actually execute (will fail here if Rosetta is missing)
+          if ! "$INTERNAL_MONO" --version >/dev/null 2>&1; then
+             echo "❌ ERROR: Compiler failed to execute. Rosetta 2 installation may have failed."
+             exit 1
+          fi
 
           # 2. DIRECTORY & BCL SETUP
           BCL_DIR="$TEMPLATE_PATH/bcl/monotouch"
